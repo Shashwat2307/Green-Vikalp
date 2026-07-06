@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd apps/frontend && next build",
+  "buildCommand": "next build",
   "installCommand": "bun install",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- apps/frontend/"
 }
