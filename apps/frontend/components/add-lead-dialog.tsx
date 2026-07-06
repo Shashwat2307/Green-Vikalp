@@ -25,20 +25,12 @@ import {
   leads as leadsApi, 
   campaigns as campaignsApi,
   pipelines as pipelinesApi,
-  type LeadType, 
   type Priority,
   type Campaign,
   type Pipeline,
   type PipelineStage 
 } from "@/lib/api";
 import { toast } from "sonner";
-
-const LEAD_TYPES: { value: LeadType; label: string }[] = [
-  { value: "BUYER", label: "Buyer" },
-  { value: "SELLER", label: "Seller" },
-  { value: "INVESTOR", label: "Investor" },
-  { value: "RENTER", label: "Renter" },
-];
 
 const PRIORITIES: { value: Priority; label: string }[] = [
   { value: "LOW", label: "Low" },
@@ -67,11 +59,9 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    fullName: "",
     email: "",
     mobile: "",
-    leadType: "BUYER" as LeadType,
-    budgetMin: "",
-    budgetMax: "",
     campaignId: "",
     currentStageId: "",
     priority: "MEDIUM" as Priority,
@@ -100,9 +90,7 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
       const data = await campaignsApi.list({ status: "ACTIVE" });
       setCampaigns(data);
       
-      // Auto-select first campaign and its first stage
       if (data.length > 0) {
-        // We'll set the stage after pipelines are loaded
         setFormData(prev => ({
           ...prev,
           campaignId: data[0].id,
@@ -115,7 +103,6 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
     }
   }
 
-  // Auto-select first stage when campaign is selected and pipelines are loaded
   useEffect(() => {
     if (formData.campaignId && pipelines.length > 0 && !formData.currentStageId) {
       const selectedCampaign = campaigns.find(c => c.id === formData.campaignId);
@@ -141,11 +128,9 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
     setFormData({
       firstName: "",
       lastName: "",
+      fullName: "",
       email: "",
       mobile: "",
-      leadType: "BUYER",
-      budgetMin: "",
-      budgetMax: "",
       campaignId: firstCampaign?.id || "",
       currentStageId: firstPipeline?.stages[0]?.id || "",
       priority: "MEDIUM",
@@ -156,8 +141,8 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      toast.error("First and last name are required");
+    if (!formData.firstName.trim() && !formData.lastName.trim() && !formData.fullName.trim()) {
+      toast.error("Please provide a name (first name, last name, or full name)");
       return;
     }
 
@@ -169,13 +154,10 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
     setLoading(true);
     try {
       await leadsApi.create({
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
+        firstName: formData.firstName.trim() || formData.fullName.trim(),
+        lastName: formData.lastName.trim() || undefined,
         email: formData.email.trim() || undefined,
         mobile: formData.mobile.trim() || undefined,
-        leadType: formData.leadType,
-        budgetMin: formData.budgetMin ? parseFloat(formData.budgetMin) : undefined,
-        budgetMax: formData.budgetMax ? parseFloat(formData.budgetMax) : undefined,
         campaignId: formData.campaignId,
         currentStageId: formData.currentStageId,
         priority: formData.priority,
@@ -200,16 +182,26 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
         <DialogHeader>
           <DialogTitle>Add New Lead</DialogTitle>
           <DialogDescription>
-            Create a new real estate lead
+            Create a new lead in the system
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Full Name</Label>
+            <Input
+              id="fullName"
+              value={formData.fullName}
+              onChange={(e) =>
+                setFormData({ ...formData, fullName: e.target.value })
+              }
+              placeholder="John Doe"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName">
-                First Name <span className="text-red-500">*</span>
-              </Label>
+              <Label htmlFor="firstName">First Name</Label>
               <Input
                 id="firstName"
                 value={formData.firstName}
@@ -217,14 +209,11 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
                   setFormData({ ...formData, firstName: e.target.value })
                 }
                 placeholder="John"
-                required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lastName">
-                Last Name <span className="text-red-500">*</span>
-              </Label>
+              <Label htmlFor="lastName">Last Name</Label>
               <Input
                 id="lastName"
                 value={formData.lastName}
@@ -232,7 +221,6 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
                   setFormData({ ...formData, lastName: e.target.value })
                 }
                 placeholder="Doe"
-                required
               />
             </div>
           </div>
@@ -265,76 +253,25 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded, children }: Add
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="leadType">Lead Type</Label>
-              <Select
-                value={formData.leadType}
-                onValueChange={(value: LeadType) =>
-                  setFormData({ ...formData, leadType: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEAD_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value: Priority) =>
-                  setFormData({ ...formData, priority: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map((priority) => (
-                    <SelectItem key={priority.value} value={priority.value}>
-                      {priority.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="budgetMin">Min Budget ($)</Label>
-              <Input
-                id="budgetMin"
-                type="number"
-                value={formData.budgetMin}
-                onChange={(e) =>
-                  setFormData({ ...formData, budgetMin: e.target.value })
-                }
-                placeholder="250000"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="budgetMax">Max Budget ($)</Label>
-              <Input
-                id="budgetMax"
-                type="number"
-                value={formData.budgetMax}
-                onChange={(e) =>
-                  setFormData({ ...formData, budgetMax: e.target.value })
-                }
-                placeholder="500000"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="priority">Priority</Label>
+            <Select
+              value={formData.priority}
+              onValueChange={(value: Priority) =>
+                setFormData({ ...formData, priority: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map((priority) => (
+                  <SelectItem key={priority.value} value={priority.value}>
+                    {priority.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

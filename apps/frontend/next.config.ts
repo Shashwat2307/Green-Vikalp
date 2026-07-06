@@ -2,15 +2,18 @@ import { resolve } from "path";
 import type { NextConfig } from "next";
 
 const apiProxy = process.env.API_PROXY_URL || "http://localhost:3001";
+const isVercel = process.env.VERCEL === "1";
 
 const nextConfig: NextConfig = {
-    output: "standalone",
+    ...(isVercel ? {} : { output: "standalone" }),
     typescript: {
         ignoreBuildErrors: true,
     },
-    turbopack: {
-        root: resolve(__dirname, "../../"),
-    },
+    ...(isVercel ? {} : {
+        turbopack: {
+            root: resolve(__dirname, "../../"),
+        },
+    }),
     async rewrites() {
         return [
             {
@@ -30,8 +33,8 @@ const nextConfig: NextConfig = {
                 destination: `${apiProxy}/leads/:path*`,
             },
             {
-                source: "/properties/:path*",
-                destination: `${apiProxy}/properties/:path*`,
+                source: "/projects/:path*",
+                destination: `${apiProxy}/projects/:path*`,
             },
             {
                 source: "/interactions/:path*",

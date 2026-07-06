@@ -35,7 +35,7 @@ model User {
   meetingAttendees     MeetingAttendee[] @relation("MeetingAttendee")
   notes                Note[]            @relation("NoteAuthor")
   createdPipelines     Pipeline[]        @relation("PipelineCreator")
-  listedProperties     Property[]        @relation("PropertyListedBy")
+  createdProjects      Project[]         @relation("ProjectCreator")
   tasks                Task[]            @relation("TaskAssignee")
   assignedCampaigns    Campaign[]        @relation("AssignedCampaigns")
   sharedDocuments      ManagedDocument[] @relation("SharedDocuments")
@@ -51,7 +51,7 @@ model Pipeline {
   id          String          @id @default(uuid())
   name        String
   description String?
-  type        PipelineType    @default(BUYER)
+  type        PipelineType    @default(SALES)
   isActive    Boolean         @default(true)
   createdById String
   createdAt   DateTime        @default(now())
@@ -100,7 +100,6 @@ model Campaign {
   updatedAt          DateTime           @updatedAt
   createdBy          User               @relation("CampaignCreator", fields: [createdById], references: [id])
   pipeline           Pipeline           @relation(fields: [pipelineId], references: [id])
-  campaignProperties CampaignProperty[]
   leads              Lead[]
   assignedTo         User[]             @relation("AssignedCampaigns")
 
@@ -110,130 +109,62 @@ model Campaign {
 }
 
 model Lead {
-  id                     String             @id @default(uuid())
-  email                  String?
-  mobile                 String?
-  score                  Int                @default(0)
-  priority               Priority           @default(MEDIUM)
-  tags                   String[]
-  lastContactedAt        DateTime?
-  nextFollowUpAt         DateTime?
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
-  initialNotes           String?
-  archivedAt             DateTime?
-  isArchived             Boolean            @default(false)
-  alternatePhone         String?
-  archivedReason         String?
-  assignedToId           String
-  bathroomsMin           Decimal?           @db.Decimal(3, 1)
-  bedroomsMin            Int?
-  budgetMax              Decimal?           @db.Decimal(12, 2)
-  budgetMin              Decimal?           @db.Decimal(12, 2)
-  campaignId             String
-  currentHousingStatus   HousingStatus?
-  currentStageId         String
-  firstName              String
-  lastName               String
-  leadType               LeadType           @default(BUYER)
-  locationPreference     String[]
-  moveInTimeline         MoveInTimeline?
-  preApprovalAmount      Decimal?           @db.Decimal(12, 2)
-  preApprovalStatus      PreApprovalStatus?
-  propertyTypePreference PropertyType[]
-  squareFeetMin          Int?
-  documents              Document[]
-  interactions           Interaction[]
-  assignedTo             User               @relation("LeadOwner", fields: [assignedToId], references: [id])
-  campaign               Campaign           @relation(fields: [campaignId], references: [id])
-  currentStage           PipelineStage      @relation(fields: [currentStageId], references: [id])
-  meetings               Meeting[]
-  notes                  Note[]
-  properties             PropertyInterest[]
-  tasks                  Task[]
+  id               String             @id @default(uuid())
+  firstName        String?
+  lastName         String?
+  fullName         String?
+  email            String?
+  mobile           String?
+  score            Int                @default(0)
+  priority         Priority           @default(MEDIUM)
+  tags             String[]
+  lastContactedAt  DateTime?
+  nextFollowUpAt   DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  initialNotes     String?
+  archivedAt       DateTime?
+  isArchived       Boolean            @default(false)
+  alternatePhone   String?
+  archivedReason   String?
+  assignedToId     String
+  campaignId       String
+  currentStageId   String
+  customFields     Json?
+  documents        Document[]
+  interactions     Interaction[]
+  assignedTo       User               @relation("LeadOwner", fields: [assignedToId], references: [id])
+  campaign         Campaign           @relation(fields: [campaignId], references: [id])
+  currentStage     PipelineStage      @relation(fields: [currentStageId], references: [id])
+  meetings         Meeting[]
+  notes            Note[]
+  tasks            Task[]
 
   @@index([campaignId, currentStageId])
   @@index([assignedToId, isArchived])
   @@index([email])
   @@index([mobile])
-  @@index([leadType, currentStageId])
   @@index([nextFollowUpAt])
   @@index([score, priority])
 }
 
-model Property {
-  id                 String             @id @default(uuid())
-  address            String
-  city               String
-  state              String
-  zipCode            String
-  country            String             @default("USA")
-  propertyType       PropertyType
-  listingStatus      ListingStatus      @default(ACTIVE)
-  price              Decimal            @db.Decimal(12, 2)
-  bedrooms           Int
-  bathrooms          Decimal            @db.Decimal(3, 1)
-  squareFeet         Int?
-  lotSize            Decimal?           @db.Decimal(10, 2)
-  yearBuilt          Int?
-  mlsNumber          String?            @unique
-  description        String?
-  photos             String[]
-  virtualTourUrl     String?
-  hoaFees            Decimal?           @db.Decimal(10, 2)
-  propertyTax        Decimal?           @db.Decimal(10, 2)
-  features           String[]
-  listedById         String?
-  listedDate         DateTime?
-  soldDate           DateTime?
-  soldPrice          Decimal?           @db.Decimal(12, 2)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  campaignProperties CampaignProperty[]
-  listedBy           User?              @relation("PropertyListedBy", fields: [listedById], references: [id])
-  interests          PropertyInterest[]
+model Project {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Decimal?    @db.Decimal(12, 2)
+  features    String[]
+  photos      String[]
+  createdById String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  createdBy   User?       @relation("ProjectCreator", fields: [createdById], references: [id])
 
-  @@index([listingStatus, propertyType])
-  @@index([city, state, zipCode])
-  @@index([price, bedrooms, bathrooms])
-  @@index([mlsNumber])
-}
-
-model PropertyInterest {
-  id         String         @id @default(uuid())
-  leadId     String
-  propertyId String
-  status     InterestStatus @default(INTERESTED)
-  notes      String?
-  viewedAt   DateTime?
-  rating     Int?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-  lead       Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  property   Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@unique([leadId, propertyId])
-  @@index([leadId, status])
-  @@index([propertyId, status])
-}
-
-model CampaignProperty {
-  id         String   @id @default(uuid())
-  campaignId String
-  propertyId String
-  isFeatured Boolean  @default(false)
-  order      Int      @default(0)
-  notes      String?
-  addedAt    DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@unique([campaignId, propertyId])
-  @@index([campaignId, order])
-  @@index([propertyId])
-  @@index([isFeatured])
+  @@index([status])
+  @@index([createdById])
 }
 
 model Interaction {
@@ -409,10 +340,11 @@ enum Priority {
 }
 
 enum PipelineType {
-  BUYER
-  SELLER
-  INVESTOR
-  RENTER
+  SALES
+  SUPPORT
+  ONBOARDING
+  SERVICE
+  OTHER
 }
 
 enum CampaignStatus {
@@ -423,64 +355,12 @@ enum CampaignStatus {
   ARCHIVED
 }
 
-enum LeadType {
-  BUYER
-  SELLER
-  INVESTOR
-  RENTER
-  BUYER_SELLER
-}
-
-enum PropertyType {
-  HOUSE
-  CONDO
-  TOWNHOUSE
-  LAND
-  COMMERCIAL
-  MULTI_FAMILY
-  MANUFACTURED
-}
-
-enum MoveInTimeline {
-  ASAP
-  ONE_TO_THREE_MONTHS
-  THREE_TO_SIX_MONTHS
-  SIX_TO_TWELVE_MONTHS
-  OVER_A_YEAR
-  JUST_BROWSING
-}
-
-enum HousingStatus {
-  RENTING
-  OWNS_HOME
-  LIVING_WITH_FAMILY
-  OTHER
-}
-
-enum PreApprovalStatus {
-  NOT_STARTED
-  IN_PROGRESS
-  PRE_QUALIFIED
-  PRE_APPROVED
-  NOT_NEEDED
-}
-
-enum ListingStatus {
+enum ProjectStatus {
   ACTIVE
   PENDING
-  SOLD
-  OFF_MARKET
-  COMING_SOON
-}
-
-enum InterestStatus {
-  INTERESTED
-  TOURED
-  FAVORITED
-  OFFER_MADE
-  OFFER_ACCEPTED
-  OFFER_REJECTED
-  NOT_INTERESTED
+  COMPLETED
+  ON_HOLD
+  CANCELLED
 }
 
 enum InteractionType {
@@ -490,8 +370,6 @@ enum InteractionType {
   WHATSAPP
   MEETING
   NOTE
-  PROPERTY_SHOWING
-  OFFER_SUBMITTED
   STAGE_CHANGE
   DOCUMENT_SENT
   AUTOMATED_EMAIL

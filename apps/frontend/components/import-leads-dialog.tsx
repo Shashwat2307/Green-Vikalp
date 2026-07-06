@@ -39,28 +39,20 @@ type ImportStep = "upload" | "configure" | "mapping" | "importing" | "results";
 type ColumnMapping = {
   sourceColumn: string;
   targetField: string;
+  customFieldName?: string;
+  isCustomField?: boolean;
   transformFunction: "NONE" | "UPPERCASE" | "LOWERCASE" | "TRIM" | "SPLIT_COMMA" | "PARSE_NUMBER" | "PARSE_DATE";
 };
 
 const LEAD_FIELDS = [
-  { value: "firstName", label: "First Name *", type: "text" },
-  { value: "lastName", label: "Last Name *", type: "text" },
+  { value: "firstName", label: "First Name", type: "text" },
+  { value: "lastName", label: "Last Name", type: "text" },
+  { value: "fullName", label: "Full Name", type: "text" },
   { value: "email", label: "Email", type: "text" },
   { value: "mobile", label: "Mobile", type: "text" },
   { value: "alternatePhone", label: "Alternate Phone", type: "text" },
-  { value: "leadType", label: "Lead Type (BUYER/SELLER/INVESTOR/RENTER/BUYER_SELLER)", type: "enum" },
-  { value: "budgetMin", label: "Budget Min", type: "number" },
-  { value: "budgetMax", label: "Budget Max", type: "number" },
-  { value: "locationPreference", label: "Location Preference (comma-separated)", type: "array" },
-  { value: "propertyTypePreference", label: "Property Types (comma-separated: HOUSE/CONDO/TOWNHOUSE/LAND/COMMERCIAL/MULTI_FAMILY)", type: "array" },
-  { value: "bedroomsMin", label: "Min Bedrooms", type: "number" },
-  { value: "bathroomsMin", label: "Min Bathrooms", type: "number" },
-  { value: "squareFeetMin", label: "Min Square Feet", type: "number" },
-  { value: "moveInTimeline", label: "Move-in Timeline (ASAP/ONE_TO_THREE_MONTHS/THREE_TO_SIX_MONTHS/SIX_TO_TWELVE_MONTHS/OVER_A_YEAR/JUST_BROWSING)", type: "enum" },
-  { value: "currentHousingStatus", label: "Current Housing Status (RENTING/OWNS_HOME/LIVING_WITH_FAMILY/OTHER)", type: "enum" },
-  { value: "preApprovalStatus", label: "Pre-Approval Status (NOT_STARTED/IN_PROGRESS/PRE_QUALIFIED/PRE_APPROVED/NOT_NEEDED)", type: "enum" },
-  { value: "preApprovalAmount", label: "Pre-Approval Amount", type: "number" },
   { value: "tags", label: "Tags (comma-separated)", type: "array" },
+  { value: "priority", label: "Priority (LOW/MEDIUM/HIGH/URGENT)", type: "enum" },
   { value: "initialNotes", label: "Initial Notes", type: "text" },
   { value: "nextFollowUpAt", label: "Next Follow-up Date", type: "date" },
 ];
@@ -79,18 +71,15 @@ export function ImportLeadsDialog({
   const [step, setStep] = useState<ImportStep>("upload");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Upload step
   const [sourceType, setSourceType] = useState<"FILE" | "GOOGLE_SHEETS_URL">("FILE");
   const [file, setFile] = useState<File | null>(null);
   const [googleSheetsUrl, setGoogleSheetsUrl] = useState("");
 
-  // Parsed data
   const [headers, setHeaders] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<Record<string, any>[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const [allRows, setAllRows] = useState<Record<string, any>[]>([]);
 
-  // Configure step
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState("");
@@ -100,13 +89,10 @@ export function ImportLeadsDialog({
   const [duplicateHandling, setDuplicateHandling] = useState<"SKIP" | "UPDATE" | "CREATE_NEW">("SKIP");
   const [duplicateCheckFields, setDuplicateCheckFields] = useState<("email" | "mobile" | "both")[]>(["email"]);
 
-  // Mapping step
   const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([]);
 
-  // Results
   const [importResults, setImportResults] = useState<any>(null);
 
-  // Load campaigns and users when dialog opens
   useEffect(() => {
     if (dialogOpen && step === "configure") {
       loadCampaigns();
@@ -114,7 +100,6 @@ export function ImportLeadsDialog({
     }
   }, [dialogOpen, step]);
 
-  // Auto-select first stage when campaign is selected
   useEffect(() => {
     if (selectedCampaign && campaigns.length > 0) {
       const campaign = campaigns.find(c => c.id === selectedCampaign);
@@ -125,7 +110,6 @@ export function ImportLeadsDialog({
     }
   }, [selectedCampaign, campaigns]);
 
-  // Smart auto-detection for column mappings
   useEffect(() => {
     if (headers.length > 0 && step === "mapping") {
       const detectedMappings: ColumnMapping[] = [];
@@ -135,53 +119,18 @@ export function ImportLeadsDialog({
         let targetField = "";
         let transform: ColumnMapping["transformFunction"] = "NONE";
 
-        // Smart matching logic - order matters, check specific patterns first!
         if (lowerHeader.includes("first") && lowerHeader.includes("name")) {
           targetField = "firstName";
         } else if (lowerHeader.includes("last") && lowerHeader.includes("name")) {
           targetField = "lastName";
+        } else if (lowerHeader === "fullname" || lowerHeader === "full name" || lowerHeader === "name") {
+          targetField = "fullName";
         } else if (lowerHeader.includes("email") || lowerHeader === "e-mail") {
           targetField = "email";
         } else if (lowerHeader.includes("alternate") && lowerHeader.includes("phone")) {
           targetField = "alternatePhone";
         } else if (lowerHeader.includes("mobile") || lowerHeader.includes("phone") || lowerHeader.includes("cell")) {
           targetField = "mobile";
-        } else if (lowerHeader.includes("property") && lowerHeader.includes("type")) {
-          targetField = "propertyTypePreference";
-          transform = "SPLIT_COMMA";
-        } else if (lowerHeader.includes("lead") && lowerHeader.includes("type")) {
-          targetField = "leadType";
-          transform = "UPPERCASE";
-        } else if (lowerHeader.includes("budget") && lowerHeader.includes("min")) {
-          targetField = "budgetMin";
-          transform = "PARSE_NUMBER";
-        } else if (lowerHeader.includes("budget") && lowerHeader.includes("max")) {
-          targetField = "budgetMax";
-          transform = "PARSE_NUMBER";
-        } else if (lowerHeader.includes("location") || lowerHeader.includes("area")) {
-          targetField = "locationPreference";
-          transform = "SPLIT_COMMA";
-        } else if (lowerHeader.includes("bedroom")) {
-          targetField = "bedroomsMin";
-          transform = "PARSE_NUMBER";
-        } else if (lowerHeader.includes("bathroom")) {
-          targetField = "bathroomsMin";
-          transform = "PARSE_NUMBER";
-        } else if (lowerHeader.includes("square") && lowerHeader.includes("feet")) {
-          targetField = "squareFeetMin";
-          transform = "PARSE_NUMBER";
-        } else if (lowerHeader.includes("move") && lowerHeader.includes("in")) {
-          targetField = "moveInTimeline";
-          transform = "UPPERCASE";
-        } else if (lowerHeader.includes("housing") && lowerHeader.includes("status")) {
-          targetField = "currentHousingStatus";
-          transform = "UPPERCASE";
-        } else if (lowerHeader.includes("approval") && lowerHeader.includes("status")) {
-          targetField = "preApprovalStatus";
-          transform = "UPPERCASE";
-        } else if (lowerHeader.includes("approval") && lowerHeader.includes("amount")) {
-          targetField = "preApprovalAmount";
-          transform = "PARSE_NUMBER";
         } else if (lowerHeader.includes("follow") && lowerHeader.includes("up")) {
           targetField = "nextFollowUpAt";
           transform = "PARSE_DATE";
@@ -190,6 +139,9 @@ export function ImportLeadsDialog({
         } else if (lowerHeader.includes("tag")) {
           targetField = "tags";
           transform = "SPLIT_COMMA";
+        } else if (lowerHeader.includes("priority")) {
+          targetField = "priority";
+          transform = "UPPERCASE";
         }
 
         if (targetField) {
@@ -251,7 +203,7 @@ export function ImportLeadsDialog({
       setHeaders(result.headers);
       setPreviewData(result.preview);
       setTotalRows(result.totalRows);
-      setAllRows(result.allRows || result.preview); // Use all rows if available, fallback to preview
+      setAllRows(result.allRows || result.preview);
 
       toast.success(`Parsed ${result.totalRows} rows successfully`);
       setStep("configure");
@@ -274,19 +226,20 @@ export function ImportLeadsDialog({
     setStep("mapping");
   };
 
-  const updateMapping = (sourceColumn: string, field: "targetField" | "transformFunction", value: string) => {
+  const updateMapping = (sourceColumn: string, field: "targetField" | "transformFunction" | "customFieldName", value: string) => {
     setColumnMappings(prev => {
       const existing = prev.find(m => m.sourceColumn === sourceColumn);
       if (existing) {
         return prev.map(m =>
           m.sourceColumn === sourceColumn
-            ? { ...m, [field]: value }
+            ? { ...m, [field]: value, isCustomField: field === "targetField" ? value === "__custom__" : m.isCustomField }
             : m
         );
       } else {
         return [...prev, {
           sourceColumn,
           targetField: field === "targetField" ? value : "",
+          isCustomField: field === "targetField" && value === "__custom__",
           transformFunction: field === "transformFunction" ? value as any : "NONE",
         }];
       }
@@ -298,12 +251,19 @@ export function ImportLeadsDialog({
   };
 
   const handleImport = async () => {
-    // Validate required mappings
-    const hasFirstName = columnMappings.some(m => m.targetField === "firstName");
-    const hasLastName = columnMappings.some(m => m.targetField === "lastName");
+    const hasNameField = columnMappings.some(m =>
+      m.targetField === "firstName" || m.targetField === "lastName" || m.targetField === "fullName"
+    );
 
-    if (!hasFirstName || !hasLastName) {
-      toast.error("You must map firstName and lastName columns (required fields)");
+    if (!hasNameField) {
+      toast.error("You must map at least a name column (first name, last name, or full name)");
+      return;
+    }
+
+    // Validate custom field names are filled in
+    const emptyCustomFields = columnMappings.filter(m => m.isCustomField && !m.customFieldName?.trim());
+    if (emptyCustomFields.length > 0) {
+      toast.error(`Enter a field name for custom column: "${emptyCustomFields[0].sourceColumn}"`);
       return;
     }
 
@@ -311,8 +271,9 @@ export function ImportLeadsDialog({
     setStep("importing");
 
     try {
-      // Use the already loaded allRows data instead of re-fetching
       const rowsToImport = allRows.length > 0 ? allRows : previewData;
+
+      const allMappings = columnMappings.filter(m => m.targetField || m.isCustomField);
 
       const result = await leads.bulkImport({
         importData: {
@@ -322,7 +283,7 @@ export function ImportLeadsDialog({
           defaultPriority,
           duplicateHandling,
           duplicateCheckFields,
-          columnMappings: columnMappings.filter(m => m.targetField),
+          columnMappings: allMappings,
           rows: rowsToImport,
         },
       });
@@ -330,7 +291,7 @@ export function ImportLeadsDialog({
       setImportResults(result);
       setStep("results");
       toast.success(`Imported ${result.summary.successful} leads successfully`);
-      
+
       if (result.summary.successful > 0) {
         onLeadsImported?.();
       }
@@ -371,7 +332,6 @@ export function ImportLeadsDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Progress indicator */}
           <div className="flex items-center justify-between">
             {["upload", "configure", "mapping", "results"].map((s, idx) => (
               <div key={s} className="flex items-center">
@@ -387,7 +347,6 @@ export function ImportLeadsDialog({
             ))}
           </div>
 
-          {/* Step 1: Upload */}
           {step === "upload" && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -436,7 +395,6 @@ export function ImportLeadsDialog({
             </div>
           )}
 
-          {/* Step 2: Configure */}
           {step === "configure" && (
             <div className="space-y-4">
               <div className="rounded-md bg-blue-50 p-3">
@@ -556,12 +514,11 @@ export function ImportLeadsDialog({
             </div>
           )}
 
-          {/* Step 3: Column Mapping */}
           {step === "mapping" && (
             <div className="space-y-4">
               <div className="rounded-md bg-amber-50 p-3">
                 <p className="text-sm text-amber-900">
-                  Map your spreadsheet columns to lead fields. Required fields: First Name, Last Name
+                  Map your spreadsheet columns to lead fields. At least one name field (First Name, Last Name, or Full Name) is recommended.
                 </p>
               </div>
 
@@ -582,14 +539,12 @@ export function ImportLeadsDialog({
                       const sampleValue = previewData[0]?.[header] || "";
                       const fieldType = mapping?.targetField ? LEAD_FIELDS.find(f => f.value === mapping.targetField)?.type : null;
 
-                      // Don't show transform for email and mobile fields
                       const noTransformFields = ["email", "mobile", "alternatePhone"];
                       const shouldHideTransform = mapping?.targetField && noTransformFields.includes(mapping.targetField);
 
-                      // Determine which transforms are available based on field type
                       const getAvailableTransforms = () => {
                         if (!fieldType || shouldHideTransform) return [];
-                        
+
                         switch (fieldType) {
                           case "text":
                             return ["NONE", "UPPERCASE", "LOWERCASE", "TRIM"];
@@ -607,30 +562,44 @@ export function ImportLeadsDialog({
                       };
 
                       const availableTransforms = getAvailableTransforms();
-                      const showTransform = mapping?.targetField && !shouldHideTransform && availableTransforms.length > 1;
+
+                      const isCustom = mapping?.isCustomField || mapping?.targetField === "__custom__";
 
                       return (
                         <TableRow key={header}>
                           <TableCell className="font-medium">{header}</TableCell>
                           <TableCell>
-                            <Select
-                              value={mapping?.targetField || undefined}
-                              onValueChange={(v) => updateMapping(header, "targetField", v)}
-                            >
-                              <SelectTrigger className="w-[200px]">
-                                <SelectValue placeholder="Select field" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {LEAD_FIELDS.map(field => (
-                                  <SelectItem key={field.value} value={field.value}>
-                                    {field.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            {isCustom ? (
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-neutral-500">Custom:</span>
+                                <Input
+                                  value={mapping?.customFieldName || ""}
+                                  onChange={(e) => updateMapping(header, "customFieldName", e.target.value)}
+                                  placeholder="Enter field name"
+                                  className="w-[140px] h-8 text-sm"
+                                />
+                              </div>
+                            ) : (
+                              <Select
+                                value={mapping?.targetField || ""}
+                                onValueChange={(v) => updateMapping(header, "targetField", v)}
+                              >
+                                <SelectTrigger className="w-[200px]">
+                                  <SelectValue placeholder="Ignore column" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {LEAD_FIELDS.map(field => (
+                                    <SelectItem key={field.value} value={field.value}>
+                                      {field.label}
+                                    </SelectItem>
+                                  ))}
+                                  <SelectItem value="__custom__">+ Custom field...</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                           </TableCell>
                           <TableCell>
-                            {showTransform && (
+                            {mapping?.targetField && !shouldHideTransform && availableTransforms.length > 1 && (
                               <Select
                                 value={mapping.transformFunction}
                                 onValueChange={(v) => updateMapping(header, "transformFunction", v)}
@@ -675,6 +644,8 @@ export function ImportLeadsDialog({
                 </Table>
               </div>
 
+
+
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setStep("configure")}>
                   Back
@@ -686,7 +657,6 @@ export function ImportLeadsDialog({
             </div>
           )}
 
-          {/* Step 4: Importing */}
           {step === "importing" && (
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
               <div className="h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-blue-600" />
@@ -695,14 +665,13 @@ export function ImportLeadsDialog({
             </div>
           )}
 
-          {/* Step 5: Results */}
           {step === "results" && importResults && (
             <div className="space-y-4">
               <div className="rounded-md bg-blue-50 p-4 mb-4">
                 <p className="text-sm text-blue-600">Total Processed</p>
                 <p className="text-2xl font-bold text-blue-900">{importResults.summary.totalRows}</p>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-md bg-green-50 p-4">
                   <p className="text-sm text-green-600">Successful</p>

@@ -103,8 +103,8 @@ router.post("/google-sheets/sync", authenticate, async (req: Request, res: Respo
         });
 
         // Basic validation for required fields
-        if (!leadData.firstName || !leadData.lastName) {
-          throw new Error("First Name and Last Name are required");
+        if (!leadData.firstName && !leadData.lastName && !leadData.fullName) {
+          throw new Error("At least one name field (firstName, lastName, or fullName) is required");
         }
 
         // Upsert based on email or mobile
@@ -223,8 +223,8 @@ router.post("/google-forms/sync", authenticate, async (req: Request, res: Respon
         });
 
         // Basic validation
-        if (!leadData.firstName || !leadData.lastName) {
-          throw new Error("First Name and Last Name are required");
+        if (!leadData.firstName && !leadData.lastName && !leadData.fullName) {
+          throw new Error("At least one name field (firstName, lastName, or fullName) is required");
         }
 
         // Upsert based on email or mobile
@@ -322,8 +322,8 @@ router.post("/webhooks/pabbly/:source/:campaignId/:stageId", async (req: Request
     const { source, campaignId, stageId } = req.params;
     const data = req.body;
 
-    if (!data.firstName || (!data.email && !data.mobile)) {
-      res.status(400).json({ error: "Missing required fields: firstName and either email or mobile are required." });
+    if ((!data.firstName && !data.lastName && !data.fullName) || (!data.email && !data.mobile)) {
+      res.status(400).json({ error: "Missing required fields: at least one name field (firstName, lastName, or fullName) and either email or mobile are required." });
       return;
     }
 
@@ -345,12 +345,10 @@ router.post("/webhooks/pabbly/:source/:campaignId/:stageId", async (req: Request
       assignedToId: campaign.createdById, // Assign to the creator by default
       firstName: data.firstName,
       lastName: data.lastName || "",
+      fullName: data.fullName || null,
       email: data.email || null,
       mobile: data.mobile || null,
       alternatePhone: data.alternatePhone || null,
-      leadType: data.leadType || "BUYER",
-      budgetMin: data.budgetMin ? parseFloat(data.budgetMin) : null,
-      budgetMax: data.budgetMax ? parseFloat(data.budgetMax) : null,
       tags: [source], // Automatically tag the lead with the source (e.g., just-dial, magicbricks)
     };
 
@@ -463,12 +461,10 @@ router.post("/upload-excel", authenticate, upload.single("file"), async (req: Re
           assignedToId: campaign.createdById,
           firstName: String(firstName),
           lastName: row["Last Name"] ? String(row["Last Name"]) : "",
+          fullName: row["Full Name"] ? String(row["Full Name"]) : null,
           email: email ? String(email) : null,
           mobile: mobile ? String(mobile) : null,
           alternatePhone: row["Alternate Phone"] ? String(row["Alternate Phone"]) : null,
-          leadType: row["Lead Type"] || "BUYER",
-          budgetMin: row["Budget Min"] ? parseFloat(row["Budget Min"]) : null,
-          budgetMax: row["Budget Max"] ? parseFloat(row["Budget Max"]) : null,
           tags: ["excel-upload"],
         };
 

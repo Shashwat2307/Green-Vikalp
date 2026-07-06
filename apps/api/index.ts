@@ -5,7 +5,7 @@ import authRouter from "./routes/auth";
 import pipelinesRouter from "./routes/pipelines";
 import campaignsRouter from "./routes/campaigns";
 import leadsRouter from "./routes/leads";
-import propertiesRouter from "./routes/properties";
+import projectsRouter from "./routes/projects";
 import interactionsRouter from "./routes/interactions";
 import foldersRouter from "./routes/folders";
 import documentsRouter from "./routes/documents";
@@ -18,7 +18,14 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: (process.env.CORS_ORIGIN || "http://localhost:3000").split(","),
+  origin: (origin, callback) => {
+    const allowed = (process.env.CORS_ORIGIN || "http://localhost:3000").split(",");
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true, // Allow cookies
 }));
 app.use(express.json());
@@ -29,7 +36,7 @@ app.use("/auth", authRouter);
 app.use("/pipelines", pipelinesRouter);
 app.use("/campaigns", campaignsRouter);
 app.use("/leads", leadsRouter);
-app.use("/properties", propertiesRouter);
+app.use("/projects", projectsRouter);
 app.use("/interactions", interactionsRouter);
 app.use("/folders", foldersRouter);
 app.use("/documents", documentsRouter);

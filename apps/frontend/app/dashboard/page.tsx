@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { leads as leadsApi, campaigns as campaignsApi, properties as propertiesApi, tasks as tasksApi } from "@/lib/api";
+import { leads as leadsApi, campaigns as campaignsApi, tasks as tasksApi } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -18,8 +18,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const [totalLeads, setTotalLeads] = useState(0);
   const [activeCampaigns, setActiveCampaigns] = useState(0);
-  const [totalProperties, setTotalProperties] = useState(0);
-  const [activeProperties, setActiveProperties] = useState(0);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
@@ -27,16 +25,10 @@ export default function DashboardPage() {
   const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   useEffect(() => {
-    // Fetch real estate stats
     leadsApi.list().then((data) => setTotalLeads(data.length)).catch(console.error);
     campaignsApi.list().then((data) => {
       const active = data.filter((c) => c.status === "ACTIVE").length;
       setActiveCampaigns(active);
-    }).catch(console.error);
-    propertiesApi.list().then((data) => {
-      setTotalProperties(data.length);
-      const active = data.filter((p) => p.status === "ACTIVE").length;
-      setActiveProperties(active);
     }).catch(console.error);
   }, []);
 
@@ -71,7 +63,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 pb-8">
-      {/* Hero Section */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary p-8 text-primary-foreground shadow-xl">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-white/5 blur-3xl" />
@@ -82,7 +73,7 @@ export default function DashboardPage() {
             </Badge>
           </div>
           <h1 className="text-3xl font-bold">
-            {greeting}, {user?.fullName?.split(" ")[0]} 👋
+            {greeting}, {user?.fullName?.split(" ")[0]}
           </h1>
           <p className="mt-2 text-neutral-300 max-w-2xl">
             Track your leads, manage campaigns, and increase your productivity.
@@ -90,8 +81,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-white hover:shadow-xl transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -130,46 +120,26 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-white hover:shadow-xl transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-purple-900">
-                Properties Listed
-              </CardTitle>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
-                <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
-                </svg>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-900">{totalProperties}</div>
-            <p className="mt-1 text-sm text-purple-700">{activeProperties} active listings</p>
-          </CardContent>
-        </Card>
-
         <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-white hover:shadow-xl transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-orange-900">
-                Tours Scheduled
+                Tasks
               </CardTitle>
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
                 <svg className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-orange-900">—</div>
-            <p className="mt-1 text-sm text-orange-700">Property viewings</p>
+            <p className="mt-1 text-sm text-orange-700">Pending tasks</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-0 shadow-lg">
           <CardHeader>
@@ -281,7 +251,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Navigation Shortcuts */}
         <Card className="border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Navigate</CardTitle>
@@ -313,7 +282,7 @@ export default function DashboardPage() {
               </button>
 
               <button
-                onClick={() => router.push("/dashboard/properties")}
+                onClick={() => router.push("/dashboard/projects")}
                 className="flex flex-col items-center gap-2 rounded-xl border-2 border-neutral-100 p-4 transition-all hover:border-purple-200 hover:bg-purple-50"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
@@ -321,7 +290,7 @@ export default function DashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
                   </svg>
                 </div>
-                <span className="text-sm font-medium text-neutral-700">Properties</span>
+                <span className="text-sm font-medium text-neutral-700">Projects</span>
               </button>
 
               <button
@@ -342,4 +311,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

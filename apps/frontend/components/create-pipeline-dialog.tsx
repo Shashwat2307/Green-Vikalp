@@ -40,7 +40,6 @@ export function CreatePipelineDialog({
   onOpenChange,
   onPipelineCreated,
 }: CreatePipelineDialogProps) {
-  // Controlled/uncontrolled state pattern
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = open !== undefined;
   const dialogOpen = isControlled ? open : internalOpen;
@@ -48,7 +47,7 @@ export function CreatePipelineDialog({
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState<PipelineType>("BUYER");
+  const [type, setType] = useState<PipelineType>("SALES");
   const [stages, setStages] = useState<Stage[]>([
     { name: "New", description: "", color: "#3B82F6" },
     { name: "Contacted", description: "", color: "#10B981" },
@@ -57,12 +56,11 @@ export function CreatePipelineDialog({
   ]);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Reset form when dialog closes
   useEffect(() => {
     if (!dialogOpen) {
       setName("");
       setDescription("");
-      setType("BUYER");
+      setType("SALES");
       setStages([
         { name: "New", description: "", color: "#3B82F6" },
         { name: "Contacted", description: "", color: "#10B981" },
@@ -91,9 +89,13 @@ export function CreatePipelineDialog({
   };
 
   const handleCreate = async () => {
-    // Validation
     if (!name.trim()) {
       toast.error("Pipeline name is required");
+      return;
+    }
+
+    if (name.trim().length < 2) {
+      toast.error("Pipeline name must be at least 2 characters");
       return;
     }
 
@@ -102,7 +104,6 @@ export function CreatePipelineDialog({
       return;
     }
 
-    // Validate all stages have names
     const emptyStageIndex = stages.findIndex((s) => !s.name.trim());
     if (emptyStageIndex !== -1) {
       toast.error(`Stage ${emptyStageIndex + 1} name is required`);
@@ -120,7 +121,7 @@ export function CreatePipelineDialog({
           name: stage.name.trim(),
           description: stage.description.trim() || undefined,
           color: stage.color,
-          isDefault: index === 0, // First stage is default
+          isDefault: index === 0,
         })),
       });
 
@@ -144,7 +145,6 @@ export function CreatePipelineDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Pipeline Details */}
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Pipeline Name *</Label>
@@ -152,7 +152,7 @@ export function CreatePipelineDialog({
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Real Estate Sales"
+                placeholder="e.g., Sales Pipeline"
                 maxLength={100}
               />
             </div>
@@ -176,16 +176,16 @@ export function CreatePipelineDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="BUYER">Buyer Pipeline</SelectItem>
-                  <SelectItem value="SELLER">Seller Pipeline</SelectItem>
-                  <SelectItem value="INVESTOR">Investor Pipeline</SelectItem>
-                  <SelectItem value="RENTER">Renter Pipeline</SelectItem>
+                  <SelectItem value="SALES">Sales Pipeline</SelectItem>
+                  <SelectItem value="SUPPORT">Support Pipeline</SelectItem>
+                  <SelectItem value="ONBOARDING">Onboarding Pipeline</SelectItem>
+                  <SelectItem value="SERVICE">Service Pipeline</SelectItem>
+                  <SelectItem value="OTHER">Other Pipeline</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* Stages Section */}
           <div className="space-y-3 border-t pt-4">
             <div className="flex items-center justify-between">
               <Label className="text-base font-semibold">Pipeline Stages *</Label>
@@ -272,7 +272,6 @@ export function CreatePipelineDialog({
             </div>
           </div>
 
-          {/* Footer Buttons */}
           <div className="flex justify-end gap-3 border-t pt-4">
             <Button
               type="button"

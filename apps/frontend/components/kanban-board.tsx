@@ -119,13 +119,6 @@ function LeadCard({
               {lead.priority}
             </Badge>
           </div>
-
-          {lead.budgetMin && lead.budgetMax && (
-            <div className="text-xs text-muted-foreground">
-              Budget: ${lead.budgetMin.toLocaleString()} - ${lead.budgetMax.toLocaleString()}
-            </div>
-          )}
-
           {lead.assignedTo && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <User className="h-3 w-3" />

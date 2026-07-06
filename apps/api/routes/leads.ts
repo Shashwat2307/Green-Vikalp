@@ -4,8 +4,6 @@ import { authenticate, requireRole } from "../middleware/auth";
 import {
   createLeadSchema,
   updateLeadSchema,
-  createPropertyInterestSchema,
-  updatePropertyInterestSchema,
   createNoteSchema,
   createDocumentSchema,
   bulkImportLeadsSchema,
@@ -54,7 +52,7 @@ router.get("/", authenticate, async (req, res) => {
     const userId = (req as any).user.userId;
     const userRole = (req as any).user.role;
     console.log("Fetching leads for user:", userId, "with role:", userRole);
-    const { campaignId, stageId, assignedToId, leadType, isArchived } = req.query;
+    const { campaignId, stageId, assignedToId, isArchived } = req.query;
 
     const where: any = {};
     const employeeRoles = ["EMPLOYEE", "TELE_CALLER", "FIELD_EXECUTIVE", "TEAM_LEADER"];
@@ -104,10 +102,6 @@ router.get("/", authenticate, async (req, res) => {
       where.assignedToId = userId;
     }
 
-    if (leadType) {
-      where.leadType = leadType;
-    }
-
     const leads = await prisma.lead.findMany({
       where,
       include: {
@@ -145,7 +139,6 @@ router.get("/", authenticate, async (req, res) => {
             tasks: true,
             meetings: true,
             notes: true,
-            properties: true,
           },
         },
       },
@@ -186,13 +179,8 @@ router.get("/stats", authenticate, async (req, res) => {
       ];
     }
 
-    const [total, byType, byStage, followUps] = await Promise.all([
+    const [total, byStage, followUps] = await Promise.all([
       prisma.lead.count({ where }),
-      prisma.lead.groupBy({
-        by: ["leadType"],
-        where,
-        _count: true,
-      }),
       prisma.lead.groupBy({
         by: ["currentStageId"],
         where,
@@ -211,10 +199,6 @@ router.get("/stats", authenticate, async (req, res) => {
 
     res.json({
       total,
-      byType: byType.map((item: any) => ({
-        type: item.leadType,
-        count: item._count,
-      })),
       byStage: byStage.map((item: any) => ({
         stageId: item.currentStageId,
         count: item._count,
@@ -267,21 +251,6 @@ router.get("/:id", authenticate, async (req, res) => {
           },
           orderBy: { occurredAt: "desc" },
           take: 50,
-        },
-        properties: {
-          include: {
-            property: {
-              include: {
-                listedBy: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
         },
         tasks: {
           include: {
@@ -383,25 +352,17 @@ router.post("/", authenticate, async (req, res) => {
       return res.status(400).json({ error: "Invalid stage for this campaign's pipeline" });
     }
 
+    const leadName = validatedData.fullName || [validatedData.firstName, validatedData.lastName].filter(Boolean).join(' ') || 'Unknown';
+
     const lead = await prisma.lead.create({
       data: {
         firstName: validatedData.firstName,
         lastName: validatedData.lastName,
+        fullName: validatedData.fullName,
         email: validatedData.email,
         mobile: validatedData.mobile,
         alternatePhone: validatedData.alternatePhone,
-        leadType: validatedData.leadType,
-        propertyTypePreference: validatedData.propertyTypePreference,
-        budgetMin: validatedData.budgetMin,
-        budgetMax: validatedData.budgetMax,
         locationPreference: validatedData.locationPreference,
-        bedroomsMin: validatedData.bedroomsMin,
-        bathroomsMin: validatedData.bathroomsMin,
-        squareFeetMin: validatedData.squareFeetMin,
-        moveInTimeline: validatedData.moveInTimeline,
-        currentHousingStatus: validatedData.currentHousingStatus,
-        preApprovalStatus: validatedData.preApprovalStatus,
-        preApprovalAmount: validatedData.preApprovalAmount,
         campaignId: validatedData.campaignId,
         currentStageId: validatedData.currentStageId,
         priority: validatedData.priority,
@@ -409,6 +370,7 @@ router.post("/", authenticate, async (req, res) => {
         assignedToId: validatedData.assignedToId || userId,
         initialNotes: validatedData.initialNotes,
         nextFollowUpAt: validatedData.nextFollowUpAt ? new Date(validatedData.nextFollowUpAt) : null,
+        customFields: validatedData.customFields,
       },
       include: {
         campaign: {
@@ -437,8 +399,8 @@ router.post("/", authenticate, async (req, res) => {
     if (validatedData.nextFollowUpAt) {
       await prisma.task.create({
         data: {
-          title: `Follow up with ${validatedData.firstName} ${validatedData.lastName}`,
-          description: `Follow-up scheduled for lead ${validatedData.firstName} ${validatedData.lastName}${validatedData.email ? ` (${validatedData.email})` : ''}`,
+          title: `Follow up with ${leadName}`,
+          description: `Follow-up scheduled for lead ${leadName}${validatedData.email ? ` (${validatedData.email})` : ''}`,
           type: "FOLLOW_UP",
           priority: validatedData.priority || "MEDIUM",
           dueDate: new Date(validatedData.nextFollowUpAt),
@@ -576,11 +538,12 @@ router.put("/:id", authenticate, async (req, res) => {
           },
         });
       } else {
+        const leadName = lead.fullName || [lead.firstName, lead.lastName].filter(Boolean).join(' ') || 'Unknown';
         // Create a new follow-up task
         await prisma.task.create({
           data: {
-            title: `Follow up with ${lead.firstName} ${lead.lastName}`,
-            description: `Follow-up scheduled for lead ${lead.firstName} ${lead.lastName}${lead.email ? ` (${lead.email})` : ''}`,
+            title: `Follow up with ${leadName}`,
+            description: `Follow-up scheduled for lead ${leadName}${lead.email ? ` (${lead.email})` : ''}`,
             type: "FOLLOW_UP",
             priority: validatedData.priority || existingLead.priority,
             dueDate: nextFollowUpDate,
@@ -674,119 +637,6 @@ router.patch("/:id/stage", authenticate, async (req, res) => {
   } catch (error: any) {
     console.error("Error updating lead stage:", error);
     res.status(500).json({ error: "Failed to update lead stage" });
-  }
-});
-
-// Add property interest
-router.post("/:id/properties", authenticate, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const validatedData = createPropertyInterestSchema.parse(req.body);
-    const userId = (req as any).user.userId;
-
-    // Verify lead exists
-    const lead = await prisma.lead.findUnique({ where: { id } });
-    if (!lead) {
-      return res.status(404).json({ error: "Lead not found" });
-    }
-
-    // Verify property exists
-    const property = await prisma.property.findUnique({
-      where: { id: validatedData.propertyId },
-    });
-    if (!property) {
-      return res.status(404).json({ error: "Property not found" });
-    }
-
-    const interest = await prisma.propertyInterest.create({
-      data: {
-        lead: { connect: { id } },
-        property: { connect: { id: validatedData.propertyId } },
-        status: validatedData.status,
-        notes: validatedData.notes,
-        viewedAt: validatedData.viewedAt ? new Date(validatedData.viewedAt) : null,
-        rating: validatedData.rating,
-      },
-      include: {
-        property: {
-          include: {
-            listedBy: {
-              select: {
-                id: true,
-                fullName: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Create interaction for property showing if viewed
-    if (validatedData.status === "TOURED" || validatedData.viewedAt) {
-      await prisma.interaction.create({
-        data: {
-          lead: { connect: { id } },
-          type: "PROPERTY_SHOWING",
-          subject: `Property Showing: ${property.address}`,
-          content: validatedData.notes || `Showed property at ${property.address}`,
-          direction: "OUTBOUND",
-          createdBy: { connect: { id: userId } },
-          occurredAt: validatedData.viewedAt ? new Date(validatedData.viewedAt) : new Date(),
-        },
-      });
-    }
-
-    res.status(201).json(interest);
-  } catch (error: any) {
-    console.error("Error adding property interest:", error);
-    if (error.name === "ZodError") {
-      return res.status(400).json({ error: "Invalid input", details: error.errors });
-    }
-    if (error.code === "P2002") {
-      return res.status(400).json({ error: "Lead already has interest in this property" });
-    }
-    res.status(500).json({ error: "Failed to add property interest" });
-  }
-});
-
-// Update property interest
-router.put("/:id/properties/:propertyInterestId", authenticate, async (req, res) => {
-  try {
-    const { id, propertyInterestId } = req.params;
-    const validatedData = updatePropertyInterestSchema.parse(req.body);
-
-    // Verify interest belongs to lead
-    const existingInterest = await prisma.propertyInterest.findFirst({
-      where: { id: propertyInterestId, leadId: id },
-    });
-
-    if (!existingInterest) {
-      return res.status(404).json({ error: "Property interest not found" });
-    }
-
-    const updateData: any = { ...validatedData };
-    if (validatedData.viewedAt) {
-      updateData.viewedAt = new Date(validatedData.viewedAt);
-    }
-
-    const interest = await prisma.propertyInterest.update({
-      where: { id: propertyInterestId },
-      data: updateData,
-      include: {
-        property: true,
-      },
-    });
-
-    res.json(interest);
-  } catch (error: any) {
-    console.error("Error updating property interest:", error);
-    if (error.name === "ZodError") {
-      return res.status(400).json({ error: "Invalid input", details: error.errors });
-    }
-    if (error.code === "P2025") {
-      return res.status(404).json({ error: "Property interest not found" });
-    }
-    res.status(500).json({ error: "Failed to update property interest" });
   }
 });
 
@@ -988,70 +838,18 @@ router.post("/import/bulk", authenticate, upload.single("file"), async (req, res
     }
 
     // Create mapping lookup
-    const mappingLookup = new Map<string, { targetField: string; transform: string }>();
+    const mappingLookup = new Map<string, { targetField: string; customFieldName?: string; isCustomField?: boolean; transform: string }>();
     columnMappings.forEach((m) => {
       mappingLookup.set(m.sourceColumn, {
         targetField: m.targetField,
+        customFieldName: m.customFieldName,
+        isCustomField: m.isCustomField || m.targetField === "__custom__",
         transform: m.transformFunction || "NONE",
       });
     });
 
-    // Helper function to normalize enum values
-    const normalizeEnumValue = (value: any, fieldName: string): any => {
-      if (!value) return null;
-      const strValue = String(value).trim().toUpperCase().replace(/\s+/g, "_");
-
-      // Move-in timeline mappings
-      const moveInTimelineMap: Record<string, string> = {
-        "WITHIN_1_MONTH": "ASAP",
-        "WITHIN_3_MONTHS": "ONE_TO_THREE_MONTHS",
-        "WITHIN_6_MONTHS": "THREE_TO_SIX_MONTHS",
-        "WITHIN_1_YEAR": "SIX_TO_TWELVE_MONTHS",
-        "FLEXIBLE": "JUST_BROWSING",
-        "1-3_MONTHS": "ONE_TO_THREE_MONTHS",
-        "3-6_MONTHS": "THREE_TO_SIX_MONTHS",
-        "6-12_MONTHS": "SIX_TO_TWELVE_MONTHS",
-        "1_YEAR_PLUS": "OVER_A_YEAR",
-      };
-
-      // Pre-approval status mappings
-      const preApprovalMap: Record<string, string> = {
-        "APPROVED": "PRE_APPROVED",
-        "QUALIFIED": "PRE_QUALIFIED",
-        "NOT_APPLICABLE": "NOT_NEEDED",
-        "N/A": "NOT_NEEDED",
-        "NA": "NOT_NEEDED",
-        "NONE": "NOT_NEEDED",
-      };
-
-      // Housing status mappings
-      const housingStatusMap: Record<string, string> = {
-        "OWNER_OCCUPIED": "OWNS_HOME",
-        "OWNS": "OWNS_HOME",
-        "RENTER": "RENTING",
-        "TENANT": "RENTING",
-        "WITH_FAMILY": "LIVING_WITH_FAMILY",
-        "NOT_APPLICABLE": "OTHER",
-        "N/A": "OTHER",
-        "NA": "OTHER",
-        "NONE": "OTHER",
-      };
-
-      if (fieldName === "moveInTimeline" && moveInTimelineMap[strValue]) {
-        return moveInTimelineMap[strValue];
-      }
-      if (fieldName === "preApprovalStatus" && preApprovalMap[strValue]) {
-        return preApprovalMap[strValue];
-      }
-      if (fieldName === "currentHousingStatus" && housingStatusMap[strValue]) {
-        return housingStatusMap[strValue];
-      }
-
-      return strValue;
-    };
-
     // Helper function to transform values
-    const transformValue = (value: any, transformFn: string, fieldName: string = ""): any => {
+    const transformValue = (value: any, transformFn: string): any => {
       if (value === null || value === undefined || value === "") return null;
 
       const strValue = String(value).trim();
@@ -1059,12 +857,7 @@ router.post("/import/bulk", authenticate, upload.single("file"), async (req, res
 
       switch (transformFn) {
         case "UPPERCASE":
-          const uppercased = strValue.toUpperCase();
-          // Apply enum normalization for enum fields
-          if (fieldName === "moveInTimeline" || fieldName === "preApprovalStatus" || fieldName === "currentHousingStatus" || fieldName === "leadType") {
-            return normalizeEnumValue(uppercased, fieldName);
-          }
-          return uppercased;
+          return strValue.toUpperCase();
         case "LOWERCASE":
           return strValue.toLowerCase();
         case "TRIM":
@@ -1107,16 +900,23 @@ router.post("/import/bulk", authenticate, upload.single("file"), async (req, res
           const transformedValue = transformValue(rawValue, mapping.transform, mapping.targetField);
 
           if (transformedValue !== null && transformedValue !== undefined) {
-            leadData[mapping.targetField] = transformedValue;
+            if (mapping.isCustomField) {
+              if (mapping.customFieldName) {
+                if (!leadData.customFields) leadData.customFields = {};
+                leadData.customFields[mapping.customFieldName] = transformedValue;
+              }
+            } else {
+              leadData[mapping.targetField] = transformedValue;
+            }
           }
         }
 
-        // Ensure required fields
-        if (!leadData.firstName || !leadData.lastName) {
+        // Ensure at least a name identifier
+        if (!leadData.firstName && !leadData.lastName && !leadData.fullName) {
           results.push({
             row: rowNumber,
             status: "error",
-            message: "Missing required fields: firstName and lastName",
+            message: "Missing name fields: provide at least one of firstName, lastName, or fullName",
           });
           continue;
         }
@@ -1182,11 +982,12 @@ router.post("/import/bulk", authenticate, upload.single("file"), async (req, res
                       },
                     });
                   } else {
+                    const leadName = updated.fullName || [updated.firstName, updated.lastName].filter(Boolean).join(' ') || 'Unknown';
                     // Create a new follow-up task
                     await prisma.task.create({
                       data: {
-                        title: `Follow up with ${updated.firstName} ${updated.lastName}`,
-                        description: `Follow-up scheduled for lead ${updated.firstName} ${updated.lastName}${updated.email ? ` (${updated.email})` : ''}`,
+                        title: `Follow up with ${leadName}`,
+                        description: `Follow-up scheduled for lead ${leadName}${updated.email ? ` (${updated.email})` : ''}`,
                         type: "FOLLOW_UP",
                         priority: updated.priority || "MEDIUM",
                         dueDate: nextFollowUpDate,
@@ -1225,10 +1026,11 @@ router.post("/import/bulk", authenticate, upload.single("file"), async (req, res
 
         // Create a follow-up task if nextFollowUpAt is set
         if (leadData.nextFollowUpAt) {
+          const leadName = newLead.fullName || [newLead.firstName, newLead.lastName].filter(Boolean).join(' ') || 'Unknown';
           await prisma.task.create({
             data: {
-              title: `Follow up with ${newLead.firstName} ${newLead.lastName}`,
-              description: `Follow-up scheduled for lead ${newLead.firstName} ${newLead.lastName}${newLead.email ? ` (${newLead.email})` : ''}`,
+              title: `Follow up with ${leadName}`,
+              description: `Follow-up scheduled for lead ${leadName}${newLead.email ? ` (${newLead.email})` : ''}`,
               type: "FOLLOW_UP",
               priority: newLead.priority || "MEDIUM",
               dueDate: new Date(leadData.nextFollowUpAt),

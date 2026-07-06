@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_BASE_URL = "";
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -58,12 +58,13 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     const data = await response.json();
 
     if (!response.ok) {
-      // Don't log expected auth-related errors that occur during normal flow
+      const isAuthEndpoint = endpoint.startsWith("/auth/");
       const isExpectedAuthError =
-        (endpoint === "/auth/me" && response.status === 401) || // Not logged in check
-        (endpoint === "/auth/check-setup"); // Setup check on first visit
+        (endpoint === "/auth/me" && response.status === 401) ||
+        endpoint === "/auth/check-setup" ||
+        (endpoint === "/auth/signin" && response.status === 401);
 
-      if (!isExpectedAuthError) {
+      if (!isExpectedAuthError && !isAuthEndpoint) {
         console.error(`[API Error] ${method} ${endpoint}:`, {
           status: response.status,
           error: data.error || response.statusText,
@@ -121,7 +122,7 @@ export type User = {
 // PIPELINE & CAMPAIGN TYPES
 // ================================
 
-export type PipelineType = "BUYER" | "SELLER" | "INVESTOR" | "RENTER";
+export type PipelineType = "SALES" | "SUPPORT" | "ONBOARDING" | "SERVICE" | "OTHER";
 export type CampaignStatus = "ACTIVE" | "PAUSED" | "COMPLETED";
 export type CampaignSource =
   | "GOOGLE_ADS"
@@ -193,43 +194,20 @@ export type Campaign = {
 };
 
 // ================================
-// LEAD TYPES (REAL ESTATE)
+// LEAD TYPES
 // ================================
 
-export type LeadType = "BUYER" | "SELLER" | "INVESTOR" | "RENTER";
-export type PropertyType =
-  | "HOUSE"
-  | "CONDO"
-  | "TOWNHOUSE"
-  | "LAND"
-  | "COMMERCIAL"
-  | "MULTI_FAMILY"
-  | "MANUFACTURED";
-
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-export type PreApprovalStatus = "NOT_STARTED" | "IN_PROGRESS" | "APPROVED" | "DENIED";
-export type HousingStatus = "RENTING" | "OWNING" | "LIVING_WITH_FAMILY" | "OTHER";
-export type MoveInTimeline = "IMMEDIATE" | "1_3_MONTHS" | "3_6_MONTHS" | "6_PLUS_MONTHS" | "FLEXIBLE";
 
 export type Lead = {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
   email: string | null;
   mobile: string | null;
   alternatePhone: string | null;
-  leadType: LeadType;
-  propertyTypePreference: PropertyType[];
-  budgetMin: number | null;
-  budgetMax: number | null;
   locationPreference: string[];
-  bedroomsMin: number | null;
-  bathroomsMin: number | null;
-  squareFeetMin: number | null;
-  moveInTimeline: MoveInTimeline | null;
-  currentHousingStatus: HousingStatus | null;
-  preApprovalStatus: PreApprovalStatus;
-  preApprovalAmount: number | null;
   campaignId: string;
   campaign: {
     id: string;
@@ -261,9 +239,9 @@ export type Lead = {
   isArchived: boolean;
   archivedAt: string | null;
   archivedReason: string | null;
+  customFields?: Record<string, any>;
   _count?: {
     interactions: number;
-    propertyInterests: number;
     tasks: number;
     meetings: number;
     notes: number;
@@ -274,71 +252,21 @@ export type Lead = {
 };
 
 // ================================
-// PROPERTY TYPES
+// PROJECT TYPES
 // ================================
 
-export type ListingStatus =
-  | "ACTIVE"
-  | "PENDING"
-  | "SOLD"
-  | "OFF_MARKET"
-  | "COMING_SOON"
-  | "WITHDRAWN";
+export type ProjectStatus = "ACTIVE" | "PENDING" | "COMPLETED" | "ON_HOLD" | "CANCELLED";
 
-export type Property = {
+export type Project = {
   id: string;
-  address: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  propertyType: PropertyType;
-  listingStatus: ListingStatus;
-  price: number;
-  bedrooms: number;
-  bathrooms: number;
-  squareFeet: number | null;
-  lotSize: number | null;
-  yearBuilt: number | null;
+  name: string;
   description: string | null;
+  status: ProjectStatus;
+  startDate: string;
+  endDate: string | null;
+  budget: number | null;
   features: string[];
   photos: string[];
-  mlsNumber: string | null;
-  hoaFees: number | null;
-  parking: number | null;
-  listedById: string;
-  listedBy: {
-    id: string;
-    fullName: string;
-  };
-  _count?: {
-    interests: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type PropertyInterestStatus =
-  | "INTERESTED"
-  | "TOURED"
-  | "OFFER_MADE"
-  | "OFFER_ACCEPTED"
-  | "OFFER_REJECTED"
-  | "NOT_INTERESTED";
-
-export type PropertyInterest = {
-  id: string;
-  leadId: string;
-  lead: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
-  propertyId: string;
-  property: Property;
-  status: PropertyInterestStatus;
-  notes: string | null;
-  tourDate: string | null;
-  offerAmount: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -353,9 +281,11 @@ export type InteractionType =
   | "SMS"
   | "WHATSAPP"
   | "MEETING"
-  | "PROPERTY_SHOWING"
   | "NOTE"
-  | "SYSTEM";
+  | "STAGE_CHANGE"
+  | "DOCUMENT_SENT"
+  | "AUTOMATED_EMAIL"
+  | "AUTOMATED_SMS";
 
 export type InteractionDirection = "INBOUND" | "OUTBOUND";
 
@@ -405,7 +335,7 @@ export type Task = {
   title: string;
   description: string | null;
   priority: Priority;
-  type: "GENERAL" | "CALL" | "EMAIL" | "FOLLOW_UP" | "PROPERTY_SHOWING" | "PAPERWORK";
+  type: "GENERAL" | "CALL" | "EMAIL" | "FOLLOW_UP" | "PAPERWORK";
   isCompleted: boolean;
   completedAt: string | null;
   dueDate: string;
@@ -694,42 +624,6 @@ export const campaigns = {
       method: "DELETE",
     }),
 
-  // Campaign Properties
-  getProperties: (campaignId: string) =>
-    request<any[]>(`/campaigns/${campaignId}/properties`),
-
-  addProperty: (campaignId: string, data: {
-    propertyId: string;
-    isFeatured?: boolean;
-    order?: number;
-    notes?: string;
-  }) =>
-    request<any>(`/campaigns/${campaignId}/properties`, {
-      method: "POST",
-      body: data,
-    }),
-
-  updateProperty: (campaignId: string, propertyId: string, data: {
-    isFeatured?: boolean;
-    order?: number;
-    notes?: string;
-  }) =>
-    request<any>(`/campaigns/${campaignId}/properties/${propertyId}`, {
-      method: "PUT",
-      body: data,
-    }),
-
-  removeProperty: (campaignId: string, propertyId: string) =>
-    request<{ message: string }>(`/campaigns/${campaignId}/properties/${propertyId}`, {
-      method: "DELETE",
-    }),
-
-  bulkAddProperties: (campaignId: string, propertyIds: string[]) =>
-    request<{ message: string; added: number; skipped: number }>(`/campaigns/${campaignId}/properties/bulk`, {
-      method: "POST",
-      body: { propertyIds },
-    }),
-
   // Lead Stage Management
   moveLeadToStage: (campaignId: string, leadId: string, stageId: string) =>
     request<Lead>(`/campaigns/${campaignId}/leads/${leadId}/stage`, {
@@ -773,7 +667,6 @@ export const leads = {
     campaignId?: string;
     stageId?: string;
     assignedToId?: string;
-    leadType?: LeadType;
     isArchived?: boolean;
   }) =>
     request<Lead[]>(`/leads${params ? "?" + new URLSearchParams(params as any).toString() : ""}`),
@@ -783,23 +676,13 @@ export const leads = {
   getTimeline: (id: string) => request<Interaction[]>(`/leads/${id}/timeline`),
 
   create: (data: {
-    firstName: string;
-    lastName: string;
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
     email?: string;
     mobile?: string;
     alternatePhone?: string;
-    leadType: LeadType;
-    propertyTypePreference?: PropertyType[];
-    budgetMin?: number;
-    budgetMax?: number;
     locationPreference?: string[];
-    bedroomsMin?: number;
-    bathroomsMin?: number;
-    squareFeetMin?: number;
-    moveInTimeline?: MoveInTimeline;
-    currentHousingStatus?: HousingStatus;
-    preApprovalStatus?: PreApprovalStatus;
-    preApprovalAmount?: number;
     campaignId: string;
     currentStageId: string;
     priority?: Priority;
@@ -807,6 +690,7 @@ export const leads = {
     assignedToId?: string;
     initialNotes?: string;
     nextFollowUpAt?: string;
+    customFields?: Record<string, any>;
   }) =>
     request<Lead>("/leads", {
       method: "POST",
@@ -816,25 +700,16 @@ export const leads = {
   update: (id: string, data: Partial<{
     firstName: string;
     lastName: string;
+    fullName: string;
     email: string;
     mobile: string;
     alternatePhone: string;
-    leadType: LeadType;
-    propertyTypePreference: PropertyType[];
-    budgetMin: number;
-    budgetMax: number;
     locationPreference: string[];
-    bedroomsMin: number;
-    bathroomsMin: number;
-    squareFeetMin: number;
-    moveInTimeline: MoveInTimeline;
-    currentHousingStatus: HousingStatus;
-    preApprovalStatus: PreApprovalStatus;
-    preApprovalAmount: number;
     priority: Priority;
     tags: string[];
     assignedToId: string;
     nextFollowUpAt: string;
+    customFields: Record<string, any>;
   }>) =>
     request<Lead>(`/leads/${id}`, {
       method: "PUT",
@@ -846,32 +721,6 @@ export const leads = {
       method: "PATCH",
       body: { currentStageId: stageId },
     }),
-
-  addPropertyInterest: (id: string, data: {
-    propertyId: string;
-    status?: PropertyInterestStatus;
-    notes?: string;
-    tourDate?: string;
-    offerAmount?: number;
-  }) =>
-    request<PropertyInterest>(`/leads/${id}/properties`, {
-      method: "POST",
-      body: data,
-    }),
-
-  updatePropertyInterest: (id: string, propertyInterestId: string, data: {
-    status?: PropertyInterestStatus;
-    notes?: string;
-    tourDate?: string;
-    offerAmount?: number;
-  }) =>
-    request<PropertyInterest>(`/leads/${id}/properties/${propertyInterestId}`, {
-      method: "PATCH",
-      body: data,
-    }),
-
-  getPropertyInterests: (id: string) =>
-    request<PropertyInterest[]>(`/leads/${id}/properties`),
 
   archive: (id: string) =>
     request<{ message: string }>(`/leads/${id}/archive`, {
@@ -971,86 +820,44 @@ export const leads = {
 };
 
 // ================================
-// PROPERTIES API
+// PROJECTS API
 // ================================
 
-export const properties = {
+export const projects = {
   list: (params?: {
-    propertyType?: PropertyType;
-    listingStatus?: ListingStatus;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-    minPrice?: number;
-    maxPrice?: number;
-    minBedrooms?: number;
-    maxBedrooms?: number;
-    minBathrooms?: number;
-    maxBathrooms?: number;
-    minSquareFeet?: number;
-    maxSquareFeet?: number;
+    status?: ProjectStatus;
     search?: string;
   }) =>
-    request<Property[]>(`/properties${params ? "?" + new URLSearchParams(params as any).toString() : ""}`),
+    request<Project[]>(`/projects${params ? "?" + new URLSearchParams(params as any).toString() : ""}`),
 
-  get: (id: string) => request<Property>(`/properties/${id}`),
-
-  getInterests: (id: string, params?: { status?: PropertyInterestStatus }) =>
-    request<PropertyInterest[]>(`/properties/${id}/interests${params ? "?" + new URLSearchParams(params as any).toString() : ""}`),
-
-  matchLeads: (id: string) =>
-    request<{
-      lead: Lead;
-      matchScore: number;
-      matchReasons: string[];
-    }[]>(`/properties/${id}/match-leads`),
+  get: (id: string) => request<Project>(`/projects/${id}`),
 
   create: (data: {
-    address: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    propertyType: PropertyType;
-    listingStatus?: ListingStatus;
-    price: number;
-    bedrooms: number;
-    bathrooms: number;
-    squareFeet?: number;
-    lotSize?: number;
-    yearBuilt?: number;
+    name: string;
     description?: string;
+    status?: ProjectStatus;
+    startDate: string;
+    endDate?: string;
+    budget?: number;
     features?: string[];
     photos?: string[];
-    mlsNumber?: string;
-    hoaFees?: number;
-    parking?: number;
   }) =>
-    request<Property>("/properties", {
+    request<Project>("/projects", {
       method: "POST",
       body: data,
     }),
 
   update: (id: string, data: Partial<{
-    address: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    propertyType: PropertyType;
-    listingStatus: ListingStatus;
-    price: number;
-    bedrooms: number;
-    bathrooms: number;
-    squareFeet: number;
-    lotSize: number;
-    yearBuilt: number;
+    name: string;
     description: string;
+    status: ProjectStatus;
+    startDate: string;
+    endDate: string;
+    budget: number;
     features: string[];
     photos: string[];
-    mlsNumber: string;
-    hoaFees: number;
-    parking: number;
   }>) =>
-    request<Property>(`/properties/${id}`, {
+    request<Project>(`/projects/${id}`, {
       method: "PUT",
       body: data,
     }),
@@ -1059,7 +866,7 @@ export const properties = {
     const formData = new FormData();
     files.forEach((file) => formData.append("photos", file));
 
-    const response = await fetch(`${API_BASE_URL}/properties/${id}/photos`, {
+    const response = await fetch(`${API_BASE_URL}/projects/${id}/photos`, {
       method: "POST",
       credentials: "include",
       body: formData,
@@ -1071,16 +878,16 @@ export const properties = {
       throw new ApiError(response.status, result.error || "Upload failed", result.details);
     }
 
-    return result as Property;
+    return result as Project;
   },
 
   deletePhoto: (id: string, photoIndex: number) =>
-    request<Property>(`/properties/${id}/photos/${photoIndex}`, {
+    request<Project>(`/projects/${id}/photos/${photoIndex}`, {
       method: "DELETE",
     }),
 
   delete: (id: string) =>
-    request<{ message: string }>(`/properties/${id}`, {
+    request<{ message: string }>(`/projects/${id}`, {
       method: "DELETE",
     }),
 };

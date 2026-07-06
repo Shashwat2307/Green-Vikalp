@@ -78,9 +78,6 @@ export default function WalkInPage() {
     try {
       await leadsApi.create({
         ...formData,
-        leadType: "BUYER",
-        budgetMin: formData.budgetMin ? parseInt(formData.budgetMin) : undefined,
-        budgetMax: formData.budgetMax ? parseInt(formData.budgetMax) : undefined,
       });
       toast.success("Walk-in lead created successfully!");
       router.push("/leads");

@@ -33,16 +33,9 @@ import { Label } from "@/components/ui/label";
 import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { ImportLeadsDialog } from "@/components/import-leads-dialog";
 import { EditLeadDialog } from "@/components/edit-lead-dialog";
-import { leads as leadsApi, campaigns as campaignsApi, auth, type Lead, type Campaign, type LeadType, type Priority, type User } from "@/lib/api";
+import { leads as leadsApi, campaigns as campaignsApi, auth, type Lead, type Campaign, type Priority, type User } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
-
-const LEAD_TYPE_STYLES: Record<LeadType, string> = {
-  BUYER: "bg-blue-100 text-blue-700 border-blue-200",
-  SELLER: "bg-green-100 text-green-700 border-green-200",
-  INVESTOR: "bg-purple-100 text-purple-700 border-purple-200",
-  RENTER: "bg-amber-100 text-amber-700 border-amber-200",
-};
 
 const PRIORITY_STYLES: Record<Priority, string> = {
   LOW: "bg-neutral-100 text-neutral-600",
@@ -56,16 +49,14 @@ export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const campaignIdFromUrl = searchParams.get("campaignId");
-  
+
   const [leadsList, setLeadsList] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCampaign, setFilterCampaign] = useState<string>(campaignIdFromUrl || "all");
-  const [filterLeadType, setFilterLeadType] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
 
-  // Bulk assign state
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [showBulkAssignDialog, setShowBulkAssignDialog] = useState(false);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
@@ -113,44 +104,29 @@ export default function LeadsPage() {
     });
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return "—";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const getLeadName = (lead: Lead) => {
+    return lead.firstName && lead.lastName
+      ? `${lead.firstName} ${lead.lastName}`
+      : lead.firstName || lead.lastName || lead.email || lead.mobile || "Unnamed Lead";
   };
 
-  // Filter leads
   const filteredLeads = leadsList.filter((lead) => {
+    const name = getLeadName(lead);
     const matchesSearch =
       searchTerm === "" ||
-      lead.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.mobile?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCampaign =
       filterCampaign === "all" || lead.campaignId === filterCampaign;
 
-    const matchesLeadType =
-      filterLeadType === "all" || lead.leadType === filterLeadType;
-
     const matchesPriority =
       filterPriority === "all" || lead.priority === filterPriority;
 
-    return matchesSearch && matchesCampaign && matchesLeadType && matchesPriority;
+    return matchesSearch && matchesCampaign && matchesPriority;
   });
 
-  // Calculate stats
-  const statsByType = leadsList.reduce((acc, lead) => {
-    acc[lead.leadType] = (acc[lead.leadType] || 0) + 1;
-    return acc;
-  }, {} as Record<LeadType, number>);
-
-  // Bulk selection helpers
   const toggleLeadSelection = (leadId: string) => {
     setSelectedLeadIds((prev) => {
       const next = new Set(prev);
@@ -210,7 +186,6 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -222,11 +197,11 @@ export default function LeadsPage() {
             )}
           </div>
           <p className="mt-1 text-sm text-neutral-500">
-            {campaignIdFromUrl ? "Leads filtered by campaign" : "Manage and track your real estate leads"}
+            {campaignIdFromUrl ? "Leads filtered by campaign" : "Manage and track your leads"}
           </p>
           {campaignIdFromUrl && (
-            <Button 
-              variant="link" 
+            <Button
+              variant="link"
               className="p-0 h-auto text-sm mt-1"
               onClick={() => {
                 setFilterCampaign("all");
@@ -269,8 +244,7 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-neutral-500">Total Leads</CardTitle>
@@ -281,54 +255,29 @@ export default function LeadsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-neutral-500">Buyers</CardTitle>
-            <div className="h-2 w-2 rounded-full bg-blue-500" />
+            <CardTitle className="text-sm font-medium text-neutral-500">High Priority</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-neutral-900">
-              {statsByType.BUYER || 0}
+            <div className="text-2xl font-bold text-orange-600">
+              {leadsList.filter((l) => l.priority === "HIGH" || l.priority === "URGENT").length}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-neutral-500">Sellers</CardTitle>
-            <div className="h-2 w-2 rounded-full bg-green-500" />
+            <CardTitle className="text-sm font-medium text-neutral-500">Unassigned</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-neutral-900">
-              {statsByType.SELLER || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-neutral-500">Investors</CardTitle>
-            <div className="h-2 w-2 rounded-full bg-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-neutral-900">
-              {statsByType.INVESTOR || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-neutral-500">Renters</CardTitle>
-            <div className="h-2 w-2 rounded-full bg-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-neutral-900">
-              {statsByType.RENTER || 0}
+              {leadsList.filter((l) => !l.assignedToId).length}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <Input
                 placeholder="Search leads..."
@@ -350,18 +299,6 @@ export default function LeadsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filterLeadType} onValueChange={setFilterLeadType}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Lead Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Lead Types</SelectItem>
-                <SelectItem value="BUYER">Buyer</SelectItem>
-                <SelectItem value="SELLER">Seller</SelectItem>
-                <SelectItem value="INVESTOR">Investor</SelectItem>
-                <SelectItem value="RENTER">Renter</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={filterPriority} onValueChange={setFilterPriority}>
               <SelectTrigger>
                 <SelectValue placeholder="All Priorities" />
@@ -378,7 +315,6 @@ export default function LeadsPage() {
         </CardContent>
       </Card>
 
-      {/* Bulk Action Bar */}
       {selectedLeadIds.size > 0 && canBulkAssign && (
         <div className="flex items-center gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm">
           <span className="text-sm font-medium text-blue-800">
@@ -406,13 +342,11 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* Loading State */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
         </div>
       ) : filteredLeads.length === 0 ? (
-        /* Empty State */
         <Card>
           <CardContent className="py-12">
             <div className="text-center">
@@ -430,16 +364,16 @@ export default function LeadsPage() {
                 />
               </svg>
               <h3 className="mt-4 text-sm font-medium text-neutral-900">
-                {searchTerm || filterCampaign !== "all" || filterLeadType !== "all" || filterPriority !== "all"
+                {searchTerm || filterCampaign !== "all" || filterPriority !== "all"
                   ? "No leads match your filters"
                   : "No leads yet"}
               </h3>
               <p className="mt-1 text-sm text-neutral-500">
-                {searchTerm || filterCampaign !== "all" || filterLeadType !== "all" || filterPriority !== "all"
+                {searchTerm || filterCampaign !== "all" || filterPriority !== "all"
                   ? "Try adjusting your search or filters"
                   : "Get started by adding your first lead"}
               </p>
-              {!searchTerm && filterCampaign === "all" && filterLeadType === "all" && filterPriority === "all" && (
+              {!searchTerm && filterCampaign === "all" && filterPriority === "all" && (
                 <div className="mt-4">
                   <AddLeadDialog onLeadAdded={fetchLeads}>
                     <Button>Add Lead</Button>
@@ -450,7 +384,6 @@ export default function LeadsPage() {
           </CardContent>
         </Card>
       ) : (
-        /* Table View */
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-medium">
@@ -476,11 +409,9 @@ export default function LeadsPage() {
                       </TableHead>
                     )}
                     <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Campaign</TableHead>
                     <TableHead>Stage</TableHead>
-                    <TableHead>Budget</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Assigned To</TableHead>
                     <TableHead>Created</TableHead>
@@ -505,13 +436,8 @@ export default function LeadsPage() {
                       )}
                       <TableCell className="font-medium">
                         <div>
-                          <div>{lead.firstName} {lead.lastName}</div>
+                          <div>{getLeadName(lead)}</div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${LEAD_TYPE_STYLES[lead.leadType]} border`}>
-                          {lead.leadType}
-                        </Badge>
                       </TableCell>
                       <TableCell className="text-neutral-600">
                         <div className="text-sm">
@@ -533,19 +459,6 @@ export default function LeadsPage() {
                         >
                           {lead.currentStage?.name || "—"}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-neutral-600">
-                        {lead.budgetMin || lead.budgetMax ? (
-                          <div className="text-sm">
-                            {lead.budgetMin && lead.budgetMax
-                              ? `${formatCurrency(lead.budgetMin)} - ${formatCurrency(lead.budgetMax)}`
-                              : lead.budgetMin
-                              ? `${formatCurrency(lead.budgetMin)}+`
-                              : `Up to ${formatCurrency(lead.budgetMax)}`}
-                          </div>
-                        ) : (
-                          "—"
-                        )}
                       </TableCell>
                       <TableCell>
                         <Badge className={`${PRIORITY_STYLES[lead.priority]} border-0`}>
@@ -591,7 +504,6 @@ export default function LeadsPage() {
         </Card>
       )}
 
-      {/* Bulk Assign Dialog */}
       <Dialog open={showBulkAssignDialog} onOpenChange={setShowBulkAssignDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

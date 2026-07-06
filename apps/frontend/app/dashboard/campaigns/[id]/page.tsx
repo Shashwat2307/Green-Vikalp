@@ -16,8 +16,7 @@ import {
 import { campaigns as campaignsApi, Lead } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
-import { ArrowLeft, Building2, MapPin, Star, Trash2, Plus, LayoutGrid, Columns3 } from "lucide-react";
-import { AddPropertiesDialog } from "@/components/add-campaign-properties-dialog";
+import { ArrowLeft, LayoutGrid, Columns3, Trash2 } from "lucide-react";
 import { KanbanBoard } from "@/components/kanban-board";
 import { CampaignAnalyticsChart } from "@/components/campaign-analytics-chart";
 
@@ -80,7 +79,6 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<any>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [removingProperty, setRemovingProperty] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [convertingLead, setConvertingLead] = useState<string | null>(null);
@@ -221,33 +219,6 @@ export default function CampaignDetailPage() {
       toast.error(error.message || "Failed to convert lead");
     } finally {
       setConvertingLead(null);
-    }
-  }
-
-  async function handleRemoveProperty(propertyId: string) {
-    if (!confirm("Remove this property from the campaign?")) return;
-
-    try {
-      setRemovingProperty(propertyId);
-      await campaignsApi.removeProperty(campaignId, propertyId);
-      toast.success("Property removed from campaign");
-      loadCampaign();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to remove property");
-    } finally {
-      setRemovingProperty(null);
-    }
-  }
-
-  async function handleToggleFeatured(propertyId: string, currentFeatured: boolean) {
-    try {
-      await campaignsApi.updateProperty(campaignId, propertyId, {
-        isFeatured: !currentFeatured,
-      });
-      toast.success(currentFeatured ? "Removed from featured" : "Added to featured");
-      loadCampaign();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update property");
     }
   }
 
@@ -700,130 +671,6 @@ export default function CampaignDetailPage() {
             </Card>
           )}
 
-      {/* Campaign Properties */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Campaign Properties</CardTitle>
-              <p className="text-sm text-neutral-600 mt-1">
-                Properties featured in this campaign
-              </p>
-            </div>
-            {canManage && (
-              <AddPropertiesDialog
-                campaignId={campaignId}
-                existingPropertyIds={campaign.campaignProperties?.map((cp: any) => cp.property.id) || []}
-                onPropertiesAdded={loadCampaign}
-              >
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Properties
-                </Button>
-              </AddPropertiesDialog>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {!campaign.campaignProperties || campaign.campaignProperties.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-              <p className="text-neutral-600 mb-4">No properties added to this campaign yet</p>
-              {canManage && (
-                <AddPropertiesDialog
-                  campaignId={campaignId}
-                  existingPropertyIds={[]}
-                  onPropertiesAdded={loadCampaign}
-                >
-                  <Button size="sm" variant="outline">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Your First Property
-                  </Button>
-                </AddPropertiesDialog>
-              )}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Beds/Baths</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Featured</TableHead>
-                  {canManage && <TableHead className="text-right">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {campaign.campaignProperties.map((cp: any) => (
-                  <TableRow key={cp.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium">{cp.property.address}</div>
-                        <div className="flex items-center text-sm text-neutral-600">
-                          <MapPin className="h-3 w-3 mr-1" />
-                          {cp.property.city}, {cp.property.state} {cp.property.zipCode}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{cp.property.propertyType}</Badge>
-                    </TableCell>
-                    <TableCell>{formatCurrency(Number(cp.property.price))}</TableCell>
-                    <TableCell>
-                      {cp.property.bedrooms} bd / {cp.property.bathrooms} ba
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          cp.property.listingStatus === "ACTIVE"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-neutral-100 text-neutral-700"
-                        }
-                      >
-                        {cp.property.listingStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {cp.isFeatured && (
-                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                      )}
-                    </TableCell>
-                    {canManage && (
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              handleToggleFeatured(cp.property.id, cp.isFeatured)
-                            }
-                          >
-                            <Star
-                              className={`h-4 w-4 ${
-                                cp.isFeatured ? "fill-yellow-500 text-yellow-500" : ""
-                              }`}
-                            />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleRemoveProperty(cp.property.id)}
-                            disabled={removingProperty === cp.property.id}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
 
           {/* Assigned Team */}
           <Card>

@@ -50,11 +50,13 @@ export default function LeadListPage() {
     loadLeads();
   }, [filter]);
 
-  const filteredLeads = leads.filter(l => 
-    l.firstName.toLowerCase().includes(search.toLowerCase()) || 
-    l.lastName.toLowerCase().includes(search.toLowerCase()) ||
-    (l.mobile && l.mobile.includes(search))
-  );
+  const filteredLeads = leads.filter(l => {
+    const displayName = l.fullName || `${l.firstName || ""} ${l.lastName || ""}`.trim();
+    return (
+      displayName.toLowerCase().includes(search.toLowerCase()) ||
+      (l.mobile && l.mobile.includes(search))
+    );
+  });
 
   return (
     <div className="flex h-screen flex-col bg-neutral-50/50 relative pb-[70px]">
@@ -85,7 +87,7 @@ export default function LeadListPage() {
               <div className="bg-white rounded-2xl p-5 shadow-[0_0_20px_rgba(0,0,0,0.15)] border border-neutral-200/60 active:bg-neutral-50 transition-colors">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h3 className="font-semibold text-neutral-900 text-lg tracking-tight">{lead.firstName} {lead.lastName}</h3>
+                    <h3 className="font-semibold text-neutral-900 text-lg tracking-tight">{lead.fullName || `${lead.firstName || ""} ${lead.lastName || ""}`.trim() || "Unnamed"}</h3>
                     <p className="text-sm text-neutral-500 font-medium mt-0.5">{lead.mobile || "No number"}</p>
                   </div>
                   <span className="px-2 py-1 bg-neutral-100 text-neutral-600 text-xs font-bold rounded-lg uppercase tracking-wider">
@@ -94,7 +96,7 @@ export default function LeadListPage() {
                 </div>
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-neutral-100">
                    <div className="h-8 w-8 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
-                     <span className="text-xs font-bold text-neutral-700">{lead.firstName[0]}</span>
+                     <span className="text-xs font-bold text-neutral-700">{lead.fullName?.[0] || lead.firstName?.[0] || "?"}</span>
                    </div>
                    <div className="text-xs font-medium text-neutral-500 line-clamp-1">
                      Assigned to <span className="text-neutral-900">{lead.assignedTo?.fullName || "Unassigned"}</span>

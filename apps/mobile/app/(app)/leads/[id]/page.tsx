@@ -146,7 +146,7 @@ export default function LeadDetailsPage() {
 
   return (
     <div className="flex h-screen flex-col bg-brand-50 relative pb-[70px]">
-      <MobileHeader title={lead.firstName} />
+      <MobileHeader title={lead.fullName || `${lead.firstName || ""} ${lead.lastName || ""}`.trim() || "Lead"} />
 
       {/* Tabs */}
       <div className="flex bg-brand-800 text-white shadow-md">
@@ -185,8 +185,7 @@ export default function LeadDetailsPage() {
             {/* Main Info Card */}
             <div className="bg-white rounded-xl shadow-sm border border-brand-100 overflow-hidden">
               <div className="bg-brand-50 px-4 py-3 border-b border-brand-100 flex justify-between items-center">
-                <h3 className="font-bold text-brand-900 text-lg">{lead.firstName} {lead.lastName}</h3>
-                <span className="text-xs font-bold bg-white px-2 py-1 rounded text-brand-600 border border-brand-200">{lead.leadType}</span>
+                <h3 className="font-bold text-brand-900 text-lg">{lead.fullName || `${lead.firstName || ""} ${lead.lastName || ""}`.trim() || "Unnamed Lead"}</h3>
               </div>
               <div className="p-4 space-y-4">
                 <div className="flex items-center gap-3">
@@ -255,14 +254,14 @@ export default function LeadDetailsPage() {
               </button>
             </div>
 
-            {/* Deal Amount */}
+            {/* Priority */}
             <div className="bg-white rounded-xl shadow-sm border border-brand-100 overflow-hidden">
               <div className="bg-brand-50 px-4 py-2 border-b border-brand-100 text-xs font-bold text-brand-500 uppercase">
-                Deal Amount
+                Priority
               </div>
               <div className="p-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-xl font-bold text-brand-900">₹ {lead.budgetMax || 0}</span>
+                  <span className="text-xl font-bold text-brand-900">{lead.priority}</span>
                 </div>
               </div>
             </div>
