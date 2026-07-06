@@ -16,18 +16,7 @@ const nextConfig: NextConfig = {
     }),
     async rewrites() {
         return [
-            { source: "/auth/:path*", destination: `${apiProxy}/auth/:path*` },
-            { source: "/pipelines/:path*", destination: `${apiProxy}/pipelines/:path*` },
-            { source: "/campaigns/:path*", destination: `${apiProxy}/campaigns/:path*` },
-            { source: "/leads/:path*", destination: `${apiProxy}/leads/:path*` },
-            { source: "/projects/:path*", destination: `${apiProxy}/projects/:path*` },
-            { source: "/interactions/:path*", destination: `${apiProxy}/interactions/:path*` },
-            { source: "/folders/:path*", destination: `${apiProxy}/folders/:path*` },
-            { source: "/documents/:path*", destination: `${apiProxy}/documents/:path*` },
-            { source: "/users/:path*", destination: `${apiProxy}/users/:path*` },
-            { source: "/tasks/:path*", destination: `${apiProxy}/tasks/:path*` },
-            { source: "/meetings/:path*", destination: `${apiProxy}/meetings/:path*` },
-            { source: "/health", destination: `${apiProxy}/health` },
+            { source: "/api/:path*", destination: `${apiProxy}/:path*` },
         ];
     },
 };

@@ -301,6 +301,17 @@ export default function LeadDetailsPage() {
                     <span className="text-xs text-brand-500 font-semibold uppercase">Created At</span>
                     <span className="text-sm font-bold text-brand-900">{new Date(lead.createdAt).toLocaleDateString()}</span>
                   </div>
+                  {lead.customFields && Object.keys(lead.customFields).length > 0 && (
+                    <div className="border-t border-brand-100 pt-3 mt-3">
+                      <p className="text-xs text-brand-500 font-semibold uppercase mb-2">Custom Fields</p>
+                      {Object.entries(lead.customFields).map(([key, value]) => (
+                        <div key={key} className="flex justify-between border-b border-brand-50 pb-2 mb-2">
+                          <span className="text-xs text-brand-500 font-semibold uppercase">{key}</span>
+                          <span className="text-sm font-bold text-brand-900">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

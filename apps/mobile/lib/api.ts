@@ -1,4 +1,4 @@
-const API_BASE_URL = "";
+const API_BASE_URL = "/api";
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";

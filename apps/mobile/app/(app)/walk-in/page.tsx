@@ -21,11 +21,11 @@ export default function WalkInPage() {
     lastName: "",
     email: "",
     mobile: "",
-    budgetMin: "",
-    budgetMax: "",
     campaignId: "",
     currentStageId: "",
   });
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
+  const [newCustomKey, setNewCustomKey] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -76,8 +76,10 @@ export default function WalkInPage() {
 
     setIsSubmitting(true);
     try {
+      const customFieldsData = Object.keys(customFields).length > 0 ? customFields : undefined;
       await leadsApi.create({
         ...formData,
+        customFields: customFieldsData,
       });
       toast.success("Walk-in lead created successfully!");
       router.push("/leads");
@@ -150,28 +152,59 @@ export default function WalkInPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-brand-600 uppercase mb-1 block">Min Budget</label>
-                  <Input 
-                    name="budgetMin"
-                    type="number"
-                    value={formData.budgetMin}
-                    onChange={handleChange}
-                    placeholder="₹ 0"
-                    className="h-12 border-brand-200"
+              {/* Custom Fields */}
+              <div className="border-t border-brand-100 pt-4">
+                <p className="text-xs font-bold text-brand-600 uppercase mb-3">Custom Fields</p>
+                {Object.entries(customFields).map(([key, value]) => (
+                  <div key={key} className="flex items-center gap-2 mb-2">
+                    <Input
+                      value={key}
+                      onChange={(e) => {
+                        const newFields = { ...customFields };
+                        delete newFields[key];
+                        newFields[e.target.value] = value;
+                        setCustomFields(newFields);
+                      }}
+                      placeholder="Field name"
+                      className="h-10 border-brand-200 text-sm flex-1"
+                    />
+                    <Input
+                      value={value}
+                      onChange={(e) => setCustomFields({ ...customFields, [key]: e.target.value })}
+                      placeholder="Value"
+                      className="h-10 border-brand-200 text-sm flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newFields = { ...customFields };
+                        delete newFields[key];
+                        setCustomFields(newFields);
+                      }}
+                      className="h-10 w-10 rounded-lg bg-red-50 text-red-500 text-sm font-bold"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newCustomKey}
+                    onChange={(e) => setNewCustomKey(e.target.value)}
+                    placeholder="New field name"
+                    className="h-10 border-brand-200 text-sm flex-1"
                   />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-brand-600 uppercase mb-1 block">Max Budget</label>
-                  <Input 
-                    name="budgetMax"
-                    type="number"
-                    value={formData.budgetMax}
-                    onChange={handleChange}
-                    placeholder="₹ 0"
-                    className="h-12 border-brand-200"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newCustomKey.trim()) return;
+                      setCustomFields({ ...customFields, [newCustomKey.trim()]: "" });
+                      setNewCustomKey("");
+                    }}
+                    className="h-10 px-4 rounded-lg bg-brand-100 text-brand-700 text-sm font-bold"
+                  >
+                    Add
+                  </button>
                 </div>
               </div>
 

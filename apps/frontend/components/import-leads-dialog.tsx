@@ -232,7 +232,14 @@ export function ImportLeadsDialog({
       if (existing) {
         return prev.map(m =>
           m.sourceColumn === sourceColumn
-            ? { ...m, [field]: value, isCustomField: field === "targetField" ? value === "__custom__" : m.isCustomField }
+            ? {
+                ...m,
+                [field]: value,
+                isCustomField: field === "targetField" ? value === "__custom__" : m.isCustomField,
+                customFieldName: field === "targetField" && value === "__custom__" && !m.customFieldName
+                  ? sourceColumn
+                  : field === "customFieldName" ? value : m.customFieldName,
+              }
             : m
         );
       } else {
@@ -240,6 +247,7 @@ export function ImportLeadsDialog({
           sourceColumn,
           targetField: field === "targetField" ? value : "",
           isCustomField: field === "targetField" && value === "__custom__",
+          customFieldName: field === "targetField" && value === "__custom__" ? sourceColumn : undefined,
           transformFunction: field === "transformFunction" ? value as any : "NONE",
         }];
       }
