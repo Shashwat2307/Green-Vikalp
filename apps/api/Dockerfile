@@ -1,5 +1,7 @@
-FROM oven/bun:1 AS base
+FROM oven/bun:1.3 AS base
 WORKDIR /app
+
+# Cache bust: 2026-07-07
 
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
