@@ -4,6 +4,8 @@ import rateLimit from "express-rate-limit";
 import prisma from "@db/client";
 import { hashPassword, verifyPassword, generateRandomPassword } from "../lib/password";
 import { signToken, cookieOptions, getCookieName } from "../lib/jwt";
+import jwt from "jsonwebtoken";
+const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key-change-in-production";
 import { authenticate, requireAdmin } from "../middleware/auth";
 import {
   setupSchema,
