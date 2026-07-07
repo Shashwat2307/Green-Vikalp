@@ -2,7 +2,7 @@
 
 import { MobileHeader } from "@/components/mobile/header";
 import { useAuth } from "@/lib/auth-context";
-import { LogOut, User, Settings, HelpCircle, FileText } from "lucide-react";
+import { LogOut, User, Settings, HelpCircle, FileText, FolderKanban } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function MorePage() {
@@ -34,6 +34,12 @@ export default function MorePage() {
 
         {/* Menu Items */}
         <div className="bg-white rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.15)] border border-neutral-200/60 overflow-hidden">
+          <button onClick={() => router.push("/projects")} className="w-full flex items-center gap-4 p-4 border-b border-neutral-100 active:bg-neutral-50 transition-colors">
+            <div className="h-10 w-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600">
+              <FolderKanban className="h-5 w-5" />
+            </div>
+            <span className="font-semibold text-neutral-900">Projects</span>
+          </button>
           <button className="w-full flex items-center gap-4 p-4 border-b border-neutral-100 active:bg-neutral-50 transition-colors">
             <div className="h-10 w-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600">
               <User className="h-5 w-5" />

@@ -579,34 +579,53 @@ router.patch("/:id/stage", authenticate, async (req, res) => {
       return res.status(400).json({ error: "currentStageId is required" });
     }
 
-    // Get existing lead
+    // Get existing lead (lightweight - only need campaignId + stageId)
     const existingLead = await prisma.lead.findUnique({
       where: { id },
-      include: { campaign: true, currentStage: true },
+      select: { id: true, campaignId: true, currentStageId: true, assignedToId: true },
     });
 
     if (!existingLead) {
       return res.status(404).json({ error: "Lead not found" });
     }
 
-    // Check access
-    const hasAccess = await canAccessCampaign(existingLead.campaignId, userId, userRole);
-    if (!hasAccess && existingLead.assignedToId !== userId) {
-      return res.status(403).json({ error: "Access denied to this lead" });
+    // Check access (lightweight)
+    const hasAccess = userRole === "ADMIN" || userRole === "MANAGER";
+    if (!hasAccess) {
+      const campaignAccess = await prisma.campaign.findUnique({
+        where: { id: existingLead.campaignId },
+        select: { assignedToIds: true },
+      });
+      if (!campaignAccess || (!campaignAccess.assignedToIds.includes(userId) && existingLead.assignedToId !== userId)) {
+        return res.status(403).json({ error: "Access denied to this lead" });
+      }
     }
 
     if (existingLead.currentStageId === currentStageId) {
-      return res.json(existingLead); // No change needed
+      const noChangeLead = await prisma.lead.findUnique({
+        where: { id },
+        include: {
+          campaign: { select: { id: true, name: true } },
+          currentStage: { select: { id: true, name: true, color: true } },
+          assignedTo: { select: { id: true, fullName: true } },
+        },
+      });
+      return res.json(noChangeLead);
     }
 
-    // Verify stage exists and belongs to campaign's pipeline
-    const stage = await prisma.pipelineStage.findUnique({
-      where: { id: currentStageId },
-      include: { pipeline: { include: { campaigns: true } } },
+    // Verify stage exists (lightweight - just check it belongs to the campaign's pipeline)
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: existingLead.campaignId },
+      select: { pipelineId: true },
     });
 
-    if (!stage) {
-      return res.status(404).json({ error: "Pipeline stage not found" });
+    const stage = await prisma.pipelineStage.findUnique({
+      where: { id: currentStageId },
+      select: { id: true, name: true, pipelineId: true },
+    });
+
+    if (!stage || !campaign || stage.pipelineId !== campaign.pipelineId) {
+      return res.status(400).json({ error: "Invalid stage for this campaign's pipeline" });
     }
 
     // Update lead and log interaction
@@ -625,7 +644,7 @@ router.patch("/:id/stage", authenticate, async (req, res) => {
           leadId: id,
           type: "STAGE_CHANGE",
           subject: "Stage Changed",
-          content: `Stage changed from ${existingLead.currentStage?.name || 'Unknown'} to ${stage.name}`,
+          content: `Stage changed to ${stage.name}`,
           direction: "OUTBOUND",
           createdById: userId,
           occurredAt: new Date(),

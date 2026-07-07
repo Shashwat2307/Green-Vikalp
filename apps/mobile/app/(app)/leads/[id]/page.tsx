@@ -238,6 +238,50 @@ export default function LeadDetailsPage() {
               </div>
             </div>
 
+            {/* Pipeline Stages */}
+            <div className="bg-white rounded-xl shadow-sm border border-brand-100 overflow-hidden">
+              <div className="bg-brand-50 px-4 py-3 border-b border-brand-100">
+                <h3 className="font-bold text-brand-900">Pipeline Stage</h3>
+              </div>
+              <div className="p-4">
+                <div className="flex flex-wrap gap-2">
+                  {lead.campaign?.pipeline?.stages?.map((stage: any) => {
+                    const isCurrent = stage.id === lead.currentStage.id;
+                    const isPending = isUpdatingStage && newStageId === stage.id;
+                    return (
+                      <button
+                        key={stage.id}
+                        disabled={isUpdatingStage}
+                        onClick={async () => {
+                          if (isCurrent || isUpdatingStage) return;
+                          setNewStageId(stage.id);
+                          setIsUpdatingStage(true);
+                          try {
+                            const updated = await leadsApi.updateStage(lead.id, stage.id);
+                            setLead(updated);
+                          } catch {
+                            toast.error("Failed to update stage");
+                          } finally {
+                            setIsUpdatingStage(false);
+                            setNewStageId("");
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all active:scale-95 ${
+                          isCurrent
+                            ? "bg-brand-800 text-white shadow-sm"
+                            : isPending
+                            ? "bg-brand-200 text-brand-500 animate-pulse"
+                            : "bg-brand-50 text-brand-600 border border-brand-200 hover:bg-brand-100"
+                        }`}
+                      >
+                        {isPending ? "..." : stage.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
             {/* Quick Actions */}
             <div className="grid grid-cols-3 gap-3">
               <button className="flex flex-col items-center justify-center py-3 bg-white rounded-xl shadow-sm border border-brand-100 text-brand-600 active:bg-brand-50">

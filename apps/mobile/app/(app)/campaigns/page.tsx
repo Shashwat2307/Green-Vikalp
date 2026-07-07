@@ -4,27 +4,52 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MobileHeader } from "@/components/mobile/header";
 import { campaigns as campaignsApi, type Campaign } from "@/lib/api";
-import { Megaphone, Search, ChevronRight } from "lucide-react";
+import { Megaphone, Search, ChevronRight, MoreVertical, Archive, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function CampaignsPage() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchCampaigns() {
-      try {
-        const data = await campaignsApi.list();
-        setCampaigns(data);
-      } catch (error) {
-        console.error("Failed to fetch campaigns", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
     fetchCampaigns();
   }, []);
+
+  async function fetchCampaigns() {
+    try {
+      const data = await campaignsApi.list();
+      setCampaigns(data);
+    } catch (error) {
+      console.error("Failed to fetch campaigns", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const handleArchive = async (campaign: Campaign) => {
+    try {
+      await campaignsApi.update(campaign.id, { status: "ARCHIVED" });
+      toast.success(`${campaign.name} archived`);
+      setCampaigns(prev => prev.filter(c => c.id !== campaign.id));
+      setMenuOpenId(null);
+    } catch {
+      toast.error("Failed to archive campaign");
+    }
+  };
+
+  const handleUnarchive = async (campaign: Campaign) => {
+    try {
+      await campaignsApi.update(campaign.id, { status: "ACTIVE" });
+      toast.success(`${campaign.name} restored`);
+      fetchCampaigns();
+      setMenuOpenId(null);
+    } catch {
+      toast.error("Failed to restore campaign");
+    }
+  };
 
   return (
     <div className="flex h-screen flex-col bg-neutral-50/50 relative pb-[70px]">
@@ -54,10 +79,10 @@ export default function CampaignsPage() {
           {campaigns.map((campaign) => (
             <div 
               key={campaign.id}
-              className="bg-white rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.15)] border border-neutral-200/60 p-5 transition-all"
+              className="bg-white rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.15)] border border-neutral-200/60 p-5 transition-all relative"
             >
               <div className="flex justify-between items-start mb-4">
-                <div>
+                <div className="flex-1">
                   <h3 className="font-semibold text-lg text-neutral-900 mb-1.5 tracking-tight">{campaign.name}</h3>
                   <div className="flex items-center gap-2">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
@@ -69,6 +94,31 @@ export default function CampaignsPage() {
                     </span>
                     <span className="text-xs font-medium text-neutral-500">{campaign.source.replace("_", " ")}</span>
                   </div>
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => setMenuOpenId(menuOpenId === campaign.id ? null : campaign.id)}
+                    className="h-8 w-8 rounded-full hover:bg-neutral-100 flex items-center justify-center"
+                  >
+                    <MoreVertical className="h-5 w-5 text-neutral-500" />
+                  </button>
+                  {menuOpenId === campaign.id && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
+                      <div className="absolute right-0 top-10 z-20 bg-white rounded-xl shadow-xl border border-neutral-200 min-w-[160px] overflow-hidden">
+                        <button
+                          onClick={() => campaign.status === "ARCHIVED" ? handleUnarchive(campaign) : handleArchive(campaign)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100"
+                        >
+                          {campaign.status === "ARCHIVED" ? (
+                            <><RotateCcw className="h-4 w-4" /> Restore</>
+                          ) : (
+                            <><Archive className="h-4 w-4" /> Archive</>
+                          )}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               

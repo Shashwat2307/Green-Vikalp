@@ -117,7 +117,7 @@ export type User = {
 // ================================
 
 export type PipelineType = "SALES" | "SUPPORT" | "ONBOARDING" | "SERVICE" | "OTHER";
-export type CampaignStatus = "ACTIVE" | "PAUSED" | "COMPLETED";
+export type CampaignStatus = "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
 export type CampaignSource =
   | "GOOGLE_ADS"
   | "FACEBOOK_ADS"
