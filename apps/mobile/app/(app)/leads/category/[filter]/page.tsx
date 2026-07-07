@@ -102,6 +102,20 @@ export default function LeadListPage() {
                      Assigned to <span className="text-neutral-900">{lead.assignedTo?.fullName || "Unassigned"}</span>
                    </div>
                 </div>
+                {lead.customFields && Object.keys(lead.customFields).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-neutral-100">
+                    {Object.entries(lead.customFields).slice(0, 3).map(([key, value]) => (
+                      <span key={key} className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-medium">
+                        {key}: {String(value).substring(0, 20)}
+                      </span>
+                    ))}
+                    {Object.keys(lead.customFields).length > 3 && (
+                      <span className="text-[10px] text-neutral-400 font-medium">
+                        +{Object.keys(lead.customFields).length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </Link>
           ))
