@@ -275,6 +275,12 @@ export default function SigninPage() {
                   )}
                 </div>
 
+                <div className="text-right">
+                  <Link href="/reset-password" className="text-xs text-primary hover:underline">
+                    Forgot password?
+                  </Link>
+                </div>
+
                 <Button
                   type="submit"
                   className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"

@@ -553,4 +553,88 @@ router.post("/google/disconnect", authenticate, async (req: Request, res: Respon
   }
 });
 
+// Forgot password — sends reset email
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: "Username is required" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { username },
+      select: { id: true, email: true, fullName: true },
+    });
+
+    if (!user || !user.email) {
+      // Don't reveal whether user exists
+      return res.json({ message: "If the account exists, a reset email has been sent" });
+    }
+
+    const resetToken = jwt.sign(
+      { userId: user.id, purpose: "password-reset" },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    const resetUrl = `${process.env.RESET_URL || "https://frontend-seven-pink-28.vercel.app"}/reset-password?token=${resetToken}`;
+
+    const { sendEmail } = await import("../lib/mail");
+    const sent = await sendEmail(
+      user.email,
+      "Password Reset — Green Vikalp CRM",
+      `<p>Hi ${user.fullName},</p>
+<p>Click the link below to reset your password. This link expires in 1 hour.</p>
+<p><a href="${resetUrl}">Reset Password</a></p>
+<p>If you didn't request this, ignore this email.</p>`
+    );
+
+    if (!sent) {
+      console.warn("Email not sent — SMTP may not be configured");
+    }
+
+    res.json({ message: "If the account exists, a reset email has been sent" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Reset password with token
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: "Token and new password are required" });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
+    let payload: any;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch {
+      return res.status(400).json({ error: "Invalid or expired token" });
+    }
+
+    if (payload.purpose !== "password-reset") {
+      return res.status(400).json({ error: "Invalid token" });
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: payload.userId },
+      data: { passwordHash },
+    });
+
+    res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

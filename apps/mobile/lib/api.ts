@@ -464,6 +464,18 @@ export const auth = {
       body: data,
     }),
 
+  forgotPassword: (data: { username: string }) =>
+    request<{ message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: data,
+    }),
+
+  resetPassword: (data: { token: string; newPassword: string }) =>
+    request<{ message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: data,
+    }),
+
   dismissPasswordChange: () =>
     request<{ message: string }>("/auth/dismiss-password-change", {
       method: "POST",
